@@ -9,8 +9,8 @@ Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for netwo
  - **JS Injecting**, which injects code when the victim's browser tries to download a JavaScript file via http *(in development).*
 
 
-<a href="docs/config.md">DOCS</a>
-<a href="docs/verbose.md">VERBOSE</a>
+<a href="config">CONFIG</a>
+<a href="verbose">VERBOSE</a>
 
 
 
