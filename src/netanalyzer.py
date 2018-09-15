@@ -60,7 +60,7 @@ class Network_Analyzer():
         
         for i in range(2):
             packets = srp(p, timeout=2, verbose=0)
-            
+
             for send_and_recv in packets[0]:
                 recv = send_and_recv[1]
                 ip = recv["ARP"].psrc
@@ -97,9 +97,9 @@ class Network_Analyzer():
         if self.arps:
             original = verbose.arps.verbose
             verbose.arps.verbose = False
+            
             e = threading.Event()
             t = arp.ARP_Spoofer(e, "everyone", self.gateway, None, 2, False)
-            
             t.start()
             
         
@@ -107,7 +107,10 @@ class Network_Analyzer():
               prn=self.handle_passive_scanning, timeout=self.timeout, store=False, stopper=lambda: self.stop, stopperTimeout=2)
         if self.arps: 
             e.set()
-            t.join()
+            try:
+                t.join()
+            except KeyboardInterrupt:
+                pass
             verbose.arps.verbose = original
         
         print()
@@ -118,8 +121,11 @@ class Network_Analyzer():
     def start(self):
         self.start_time = time.time()
         
-        if self.active: 
-            self.active_scanning()
+        if self.active:
+            try:
+                self.active_scanning()
+            except KeyboardInterrupt:
+                pass
         self.results()
         if self.passive: 
             try:

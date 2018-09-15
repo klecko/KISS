@@ -5,7 +5,14 @@ from urllib.parse import parse_qs
 
 
 def is_it_an_ip(s):
-    return s.replace(".","").isnumeric()
+    if s.replace(".","").isnumeric():
+        parts = s.split(".")
+        if len(parts) == 4:
+            for part in parts:
+                if int(part) > 255 or int(part) < 0:
+                    return False
+                return True
+    return False
     
     
 def get_domain_pointer_to_local_ip(ip):

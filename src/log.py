@@ -8,7 +8,7 @@ if platform == "linux":
         GREETINGS = '\033[91m'
         DNS = '\033[92m'
         ARPS = '\033[33m'
-        WARNING = '\033[93m'
+        WARNING = '\033[43m'
         URL = '\033[34m'
         INFO = '\033[95m'
         NETANALYZER = '\033[36m'
@@ -96,7 +96,7 @@ class log(): #log class, which will contain a class for each module.
         print(colors.INFO + "[" + header + "]" + colors.ENDC, *msg)
     
     def warning(*msg):
-        print(colors.WARNING + "[WARNING]" + colors.ENDC, *msg)
+        print(colors.WARNING + colors.BOLD + "[WARNING]" + colors.ENDC, *msg)
     
     def error(*msg):
         print(colors.FAIL + colors.BOLD + "[ERROR]" + colors.ENDC, *msg)
