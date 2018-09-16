@@ -1,4 +1,8 @@
-﻿# What is KISS?
+﻿<a href="verbose">VERBOSE</a>
+<a href="config">CONFIG</a>
+<a href="to_do_list">TO DO LIST</a>
+
+# What is KISS?
 Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for network attacks. As its name denotes, it has been created by KleSoft for research purposes. It is based on Python3 and Scapy.
 
 # Features
@@ -7,10 +11,6 @@ Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for netwo
  - **MITM** with ARP Spoofing, which poisons the ARP cache of the target with (gateway_ip, your_mac_addr). so that all the traffic that the target sends to the gateway is intercepted. This also done the other way round (client-->gateway and gateway-->client). It also exists the possibility of targeting the whole network *(in development)*.  
  - **DNS Spoofing**, which sends spoofed answers to DNS Queries in order to redirect domains to fake IPs, with a great customization of target domains and hosts.
  - **JS Injecting**, which injects code when the victim's browser tries to download a JavaScript file via http *(in development).*
-
-
-<a href="config">CONFIG</a>
-<a href="verbose">VERBOSE</a>
 
 
 
