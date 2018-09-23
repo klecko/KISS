@@ -7,6 +7,7 @@
 - Update documentation.
 
 ### Incoming minor changes
+- Possibility of adding a target to JS Injecter.
 - HTTP Sniffer should also can sniff cookies for session hijacking.
 - Maybe file dns.py should be changed to not collide with dns from scapy.
 - Maybe everything imported from scapy should be changed to sc.*
@@ -22,4 +23,3 @@
 ### Bug fixes
 - DNS Spoofing wikia.com to pokexperto.net some queries fails, probably because of pokexperto.net/index2.php . Investigate that.
 - When you DNS Spoof, some HTTP POST Packets are not spoofed (for example login in padventures.org). I think that even if they are, it redirects to the real host.
-
