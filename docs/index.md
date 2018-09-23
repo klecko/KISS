@@ -1,8 +1,3 @@
----
-layout: post
-title: Blogging Like a Hacker
----
-
 <a href="verbose">VERBOSE</a>
 <a href="config">CONFIG</a>
 <a href="to_do_list">TO DO LIST</a>
