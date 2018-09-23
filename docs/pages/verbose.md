@@ -2,9 +2,9 @@
 KISS has a verbose file called `verbose.ini` in order to configurate which messages and warnings are going to be shown and which ones not. Here there's a little explanation and an example for each message key. Each value can be set to 0 or 1 (0: disabled, 1: enabled).
 
 ## General
-|Message Key|Description|Example|
-|--|--|:--:|
-|verbose|General verbose. If set to 0, only errors will be printed.| - |
+| Message Key | Description | Example |
+| -- | -- | :--: |
+| verbose | General verbose. If set to 0, only errors will be printed. | - |
 
 ## JS
 
