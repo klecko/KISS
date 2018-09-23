@@ -4,6 +4,7 @@
 - DoS Attack: probably https://www.giac.org/paper/gsec/313/naptha-type-denial-of-service-attack/100899
 - JS Injecter
 - Deauth Attack (maybe comes with a DHCP Spoofing attack)
+- Update documentation.
 
 ### Incoming minor changes
 - HTTP Sniffer should also can sniff cookies for session hijacking.
