@@ -1,3 +1,6 @@
+site.pages
+site.url
+
 [VERBOSE](pages/verbose.html)
 [CONFIG](pages/config.html)
 [TO DO LIST](pages/to_do.html)
