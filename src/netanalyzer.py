@@ -12,7 +12,29 @@ from src.log import log, verbose
 
 
 class Network_Analyzer():
+    """Class of the Network Analyzer module. Note that this is not a Thread.
+    
+    Performs active and passive scanning of the network in order to detect
+    devices.
+    """
     def __init__(self, gateway, resolve, active, passive, passive_arps_everyone, passive_timeout=None):
+        """Creates the thread.
+        
+        Parameters:
+            gateway (str): the IP address of the gateway.
+            resolve (bool): if True, each IP Address will be resolved to
+                guess the name of the device.
+            active (bool): if True, an active scanning will be performed.
+            passive (bool): if True, a passive scanning will be performed.
+            passive_arps_everyone (bool): if True, an ARP Spoofing attack will
+                be performed to the whole net in order to detect devices. 
+                Warning: this makes passive scanning noisier.
+            passive_timeout (int, None): the time in seconds of the duration of
+                the passive scanning. If None, it will last until CTRL-C is 
+                pressed. It is set to None by default.
+            As a Thread, it can also have any of a thread parameters. See
+            help(threading.Thread) for more help.
+        """
         self.gateway = gateway
         self.resolve = resolve
         self.active = active
@@ -26,18 +48,46 @@ class Network_Analyzer():
         #print("[NET] Found", len(packets[0]), "devices connected to the network.")
 
     
-    def display_host(self, host):
+    def _display_host(self, host):
+        """Displays a host.
+        
+        Parameters:
+            host (list): list whose first element is the IP and the second
+                element is the name, which can be None.
+        """
+        
         print("IP:", host[0], "\tName: ", end="")
         print(host[1]) if host[1] else print("not resolved")
     
                 
     
-    def is_it_a_new_ip(self, ip):
+    def _is_it_a_new_ip(self, ip):
+        """Checks if the given IP has not been detected yet.
+        
+        Parameters:
+            ip (str): the possible new IP address.
+            
+        Returns:
+            bool: True if it is a new IP, False otherwise.
+        """
+        
         return ip not in [detected_host[0] for detected_host in self.hosts]
     
     
-    def add_host(self, ip):
-        if self.is_it_a_new_ip(ip):
+    def _add_host(self, ip):
+        """If the given IP is a new IP, it is added to the detected hosts list
+        and resolved if desired.
+        
+        Parameters:
+            ip (str): the detected IP address, which can be new or not.
+            
+        Returns:
+            list: if the IP address hasn't been discovered yet, it returns a
+                list containing the ip address and the name of the device
+                if it was resolved.
+            bool: False if it was not a new IP.
+        """
+        if self._is_it_a_new_ip(ip):
             name = None
             if self.resolve: 
                 ptr = packet_utilities.get_domain_pointer_to_local_ip(ip)
@@ -47,7 +97,9 @@ class Network_Analyzer():
         return False
     
     
-    def active_scanning(self):
+    def _active_scanning(self):
+        """Performs an active network scanning."""
+        
         #packets are sent to broadcast on layer 2
         #the other option was using layer 3, but you would have to wait for scapy
         #to guess the mac address of each ip. most of them do not exist, so it would end up
@@ -64,11 +116,13 @@ class Network_Analyzer():
             for send_and_recv in packets[0]:
                 recv = send_and_recv[1]
                 ip = recv["ARP"].psrc
-                self.add_host(ip)
+                self._add_host(ip)
             time.sleep(1)
     
         
-    def results(self):
+    def _results(self):
+        """Displays the results of the active scan and other logs."""
+        
         if self.active and self.passive:
             log.netanalyzer.info("finish", type="active", devices=len(self.hosts))
             log.netanalyzer.info("start", type="passive", timeout=self.timeout, arps=self.arps)
@@ -77,23 +131,32 @@ class Network_Analyzer():
         elif self.active: log.netanalyzer.info("finish", type="active_only", devices=len(self.hosts))
         
         for host in self.hosts:
-            self.display_host(host)
+            self._display_host(host)
             
         if self.active and not self.passive: print()
         
         
-    def handle_passive_scanning(self, p):
+    def _handle__passive_scanning(self, p):
+        """Handles every packet received from passive scanning. If it comes
+        from an undiscovered device, it displays it.
+        
+        Parameters:
+            packet (scapy.packet.Packet): handled packet.
+        """
+        
         if p.haslayer("ARP"):
             ip = p["ARP"].psrc
         elif p.haslayer("IP"):
             ip = p["IP"].src
             
-        host = self.add_host(ip)
+        host = self._add_host(ip)
         if host:
-            self.display_host(host)
+            self._display_host(host)
 
 
-    def passive_scanning(self):
+    def _passive_scanning(self):
+        """Performs a passive network scanning."""
+        
         if self.arps:
             original = verbose.arps.verbose
             verbose.arps.verbose = False
@@ -104,7 +167,7 @@ class Network_Analyzer():
             
         
         sniff(filter="arp or ip", lfilter= lambda p: (p.haslayer("IP") and p["IP"].src.startswith("192.")) or p.haslayer("ARP"),
-              prn=self.handle_passive_scanning, timeout=self.timeout, store=False, stopper=lambda: self.stop, stopperTimeout=2)
+              prn=self._handle__passive_scanning, timeout=self.timeout, store=False, stopper=lambda: self.stop, stopperTimeout=2)
         if self.arps: 
             e.set()
             try:
@@ -119,17 +182,19 @@ class Network_Analyzer():
 
         
     def start(self):
+        """Performs the network scanning."""
+        
         self.start_time = time.time()
         
         if self.active:
             try:
-                self.active_scanning()
+                self._active_scanning()
             except KeyboardInterrupt:
                 pass
-        self.results()
+        self._results()
         if self.passive: 
             try:
-                self.passive_scanning()
+                self._passive_scanning()
             except KeyboardInterrupt:
                 self.stop = True
                 

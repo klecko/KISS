@@ -1,5 +1,5 @@
-#KleSniffer by KleSoft
-#15/09/18
+#KISS by KleSoft
+#23/09/18
 
 
 import threading
@@ -69,8 +69,9 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             
             #JS
             self.J_ENABLED = args.getboolean("js", "enabled", fallback="D34D")
-            
-            
+            self.J_FILE = args.get("js", "file", fallback="D34D")
+            self.J_TIME_SECS = args.get("js", "time_limit", fallback="D34D")
+            self.J_TIME_SECS = int(selfJ_TIME_SECS) if not self.J_TIME_SECS == '' else None
             
             
         except Exception as err:
@@ -84,10 +85,6 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             #si alguno de los atributos de la clase args contiene D34D, es porque no se ha encontrado alguno de los args
             log.error("Missing conf parameters in config file. Leaving...")
             sys.exit()
-            
-        
-            
-        
             
         
         #PARTICULARES
@@ -125,7 +122,7 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
         
         #DNS
         if self.D_ENABLED and not self.D_FILE:
-            log.warning("Missing DNS parameters in config file. Disabling DNS...")
+            log.warning("Missing DNS parameters in config file. Disabling DNS Spoofer...")
             self.D_ENABLED = False
         if self.D_ENABLED:
             try:
@@ -134,6 +131,18 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             except FileNotFoundError:
                 log.warning("File", self.D_FILE, "could not be found. Disabling DNS Spoofer...")
                 self.D_ENABLED = False
+        
+        #JS
+        if self.J_ENABLED and not self.J_FILE:
+            log.warning("Missing JS parameters in config file. Disabling JS Injecter...")
+            self.J_ENABLED = False
+        # ~ if self.J_ENABLED: #J_FILE is not a file but a http direction
+            # ~ try:
+                # ~ f = open(self.J_FILE)
+                # ~ f.close()
+            # ~ except FileNotFoundError:
+                # ~ log.warning("File", self.J_FILE, "could not be found. Disabling JS Injecter...")
+                # ~ self.J_ENABLED = False
         
         #NO PARTICULARES
         if self.D_ENABLED and not self.A_ENABLED:
@@ -151,16 +160,19 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
         log.info("CONFIG", "Config file is OK!")
 
 
-def configure_iptables(init, arps_activated=False, dns_activated=False, js_activated=False):
+def configure_iptables(init, args=None):
     if platform == "linux": #platform is from scapy
         os.system("iptables --flush")
         if init:
+            arps_activated = (args.A_ENABLED or args.N_PASSIVE_ARPS_EVERYONE)
             if arps_activated: os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
-            if dns_activated: 
-                os.system("iptables -A FORWARD -p udp --dport 53 -j DROP");
-                os.system("iptables -A FORWARD -p tcp --dport 80 -m string --string 'GET' --algo bm -m string --string 'GET' --algo bm -j DROP")
+            if args.D_ENABLED: 
+                os.system("iptables -A FORWARD -p udp --dport 53 -j DROP")
+                os.system("iptables -A FORWARD -p tcp --dport 80 -m string --string 'POST' --algo bm -m string --string 'GET' --algo bm -j DROP")
+            
+            if args.J_ENABLED: 
+                os.system("iptables -A FORWARD -p tcp --sport 80 -m string --string 'ype: text/html' --algo bm -j DROP")
                 
-            if js_activated: os.system("iptables -A FORWARD -p tcp --sport 80 -j DROP")
             
             log.info("CONFIG", "Iptables have been established.")
         else:
@@ -168,8 +180,10 @@ def configure_iptables(init, arps_activated=False, dns_activated=False, js_activ
             log.info("CONFIG", "Iptables have been cleared.")
     else:
         if init:
+            arps_activated = (args.A_ENABLED or args.N_PASSIVE_ARPS_EVERYONE)
             if arps_activated: log.warning("Make sure Routing and Remote Access Service is activated.")
-            if dns_activated: log.warning("Windows is not supported due to the lack of iptables. DNS Spoofing will probably not work correctly.")
+            if args.D_ENABLED: log.warning("Windows is not supported due to the lack of iptables. DNS Spoofing will probably not work correctly.")
+            
             
 def check_privileges():
     if platform == "linux":
@@ -226,8 +240,8 @@ def main():
     
     args = Args("config.ini")
     
-    arps_activated = (args.A_ENABLED or args.N_PASSIVE_ARPS_EVERYONE)
-    configure_iptables(True, arps_activated, args.D_ENABLED, args.J_ENABLED)
+    
+    configure_iptables(True, args)
     
     exit_event = threading.Event()
     
@@ -254,9 +268,9 @@ def main():
     if args.U_ENABLED:
         url = url_stalker.URL_Stalker(exit_event, args.U_TIME_SECS)
         url.start()
-        
+    
     if args.J_ENABLED:
-        js_injecter = js.JS_Injecter(exit_event)
+        js_injecter = js.JS_Injecter(exit_event, args.J_FILE, args.J_TIME_SECS)
         js_injecter.start()
         
     

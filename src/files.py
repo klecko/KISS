@@ -2,7 +2,14 @@ import os
 from scapy.all import wrpcap
 
 def save_packets(packets):
-    #Saves the packets as a pcap file with a numeric name in 'packets' folder.
+    """Saves packets as a pcap file with a numeric name in 'packets' folder."
+    
+    Parameters:
+        packets (scapy.plist.PacketList): list of packets that will be saved.
+    
+    Returns:
+        str: location of the saved file.
+    """
     
     #getting filename
     name = 1
@@ -17,20 +24,33 @@ def save_packets(packets):
     
     return filename
 
-def get_relevant_attributes_from_file(loc):
-    #Reads the 'keywords' file and returns a list with every line. Each line is an
-    #attribute that we are interested in.
+def get_lines_from_file(loc):
+    """Reads the file and returns a list with every line.
     
-    f = open(loc) #parece que en ubuntu el path del archivo principal se añade al path del archivo
-    #importado, por lo que keywords puede estar en el mismo directorio que klesniffer.py
+    Parameters:
+        loc (str): location of the file.
+    
+    Returns:
+        list: list containing each of the lines of the file.
+    """
+    
+    f = open(loc)
     result= [line.replace("\n", "") for line in f]
     f.close()
     return result
 
 
 def parse_domains_and_ips(file_loc):
-    #Reads the file and returns a dict with every domain we want to redirect and
-    #the respective address we want to redirect it to.
+    """Reads the file and returns a dict with every domain we want to redirect 
+    and the respective address we want to redirect it to.
+    
+    Parameters:
+        file_loc (str): the location of the file.
+        
+    Returns:
+        dict: a dictionary whose keys are the domains and whose values are the
+            IP addresses or the domains that the key should be redirected to.
+    """
     
     f = open(file_loc)
     result = {}

