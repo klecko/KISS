@@ -1,6 +1,6 @@
-<a href="verbose">VERBOSE</a>
-<a href="config">CONFIG</a>
-<a href="to_do_list">TO DO LIST</a>
+[VERBOSE](pages/verbose.html)
+[CONFIG](pages/config.html)
+[TO DO LIST](pages/to_do.html)
 
 # What is KISS?
 Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for network attacks. As its name denotes, it has been created by KleSoft for research purposes. It is based on Python3 and Scapy.
