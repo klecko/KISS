@@ -226,7 +226,7 @@ def dependencias():
         log.error("Scapy " + scapy.VERSION + "is not supported. Please download Scapy +2.4.0.")
         sys.exit()
     if not "KLECKO" in content:
-        log.error("Your sendrecv.py Scapy file is not Klecko's scapy file. Please download it from his Google Drive.")
+        log.error("Your sendrecv.py Scapy file is not KISS custom file. Please move files in scapy_files folder to the Scapy directory.")
         sys.exit()
     
 
