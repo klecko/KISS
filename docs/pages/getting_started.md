@@ -1,4 +1,4 @@
-# Getting started
+# Getting Started
 
 ## Installing dependencies
 First of all, you need everything that KISS needs in order to work correctly. Most things will be just a single command line.

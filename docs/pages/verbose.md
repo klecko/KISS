@@ -1,4 +1,4 @@
-﻿# Verbose file
+﻿# Verbose File
 KISS has a verbose file called `verbose.ini` in order to configurate which messages and warnings are going to be shown and which ones not. Here there's a little explanation and an example for each message key. Each value can be set to 0 or 1 (0: disabled, 1: enabled).
 
 ## General
