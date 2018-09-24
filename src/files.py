@@ -13,7 +13,14 @@ def save_packets(packets):
     
     #getting filename
     name = 1
-    files = os.listdir("packets")
+    
+    try:
+        files = os.listdir("packets")
+    except FileNotFoundError:
+        os.system("mkdir packets")
+        os.system("chown " + os.getlogin() + ":" + os.getlogin() + " packets")
+        files = []
+        
     while str(name) + ".pcap" in files:
         name += 1
     filename = "packets/" + str(name) + ".pcap"

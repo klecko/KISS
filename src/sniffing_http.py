@@ -50,7 +50,7 @@ class HTTP_Sniffer(threading.Thread):
         if len(packets) > 0: loc = files.save_packets(packets)
         else: loc = None
         log.sniff.info("finish", len=len(packets), loc=loc)
-        if verbose.sniff._results and len(packets) > 0:
+        if verbose.sniff.results and len(packets) > 0:
             print(". Analyzing packets...\n")
             for i, packet in enumerate(packets):
                     print("\033[94mPACKET " + str(i) + "\033[0m:")
@@ -65,7 +65,7 @@ class HTTP_Sniffer(threading.Thread):
         """Handles every HTTP post packet, logging when it is called."""
         
         log.sniff.info("packet_found", host=packet_utilities.get_host(packet["Raw"].load.decode('utf-8', "ignore")), src=packet["IP"].src)
-        self.packets_ids.append([packet.ack, packet.seq])
+        self.packets_ids.append((packet.ack, packet.seq))
         
     def run(self):
         """Method representing the thread's activity. It is started when start
@@ -86,7 +86,7 @@ class HTTP_Sniffer(threading.Thread):
         
         try:
             packets = sniff(timeout=self.timeout, filter="tcp and dst port 80", \
-                            lfilter=lambda x: x.haslayer("Raw") and b"POST" in x["Raw"].load and not [x.ack, x.seq] in self.packets_ids, \
+                            lfilter=lambda x: x.haslayer("Raw") and b"POST" in x["Raw"].load and not (x.ack, x.seq) in self.packets_ids, \
                             prn= self._handle_packet, \
                             stopperTimeout=3, stopper=self.exit_event.is_set)
         except PermissionError as err:

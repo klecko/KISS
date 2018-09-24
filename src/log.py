@@ -7,7 +7,7 @@ if platform == "linux":
         FAIL = '\033[41m'
         GREETINGS = '\033[91m'
         DNS = '\033[92m'
-        ARPS = '\033[33m'
+        ARPS = '\033[93m'
         WARNING = '\033[43m'
         URL = '\033[34m'
         INFO = '\033[95m'
@@ -212,7 +212,7 @@ class log(): #log class, which will contain a class for each module.
                     
         def error(msg_key, **kwargs):
             if msg_key == "len": log.error("Spoofed packet length was more than expected. There was a difference of", kwargs["diff1"], "in SEQS+TCPLENS. After ussing solution 3 there's a difference of", kwargs["diff2"], "which is still bad.")
-            elif msg_key == "resolve": log.error("Domain", kwargs["supposed_ip"], "could not be resolved. Estas jodido porque necesitas una IP.")
+            elif msg_key == "resolve": log.error("Domain", kwargs["supposed_ip"], "could not be resolved, so it won't be redirected. Is it well written??")
             elif msg_key == "permission_sniffing": log.error("PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
             else: log.warning("LOG ERROR while trying to log error in dns. Unknown message key:", msg_key)
     

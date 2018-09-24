@@ -52,7 +52,7 @@ class Network_Analyzer():
         """Displays a host.
         
         Parameters:
-            host (list): list whose first element is the IP and the second
+            host (tuple): tuple whose first element is the IP and the second
                 element is the name, which can be None.
         """
         
@@ -82,9 +82,9 @@ class Network_Analyzer():
             ip (str): the detected IP address, which can be new or not.
             
         Returns:
-            list: if the IP address hasn't been discovered yet, it returns a
-                list containing the ip address and the name of the device
-                if it was resolved.
+            tuple: if the IP address hasn't been discovered yet, it returns a
+                tuple containing the ip address and the name of the device
+                if it was added.
             bool: False if it was not a new IP.
         """
         if self._is_it_a_new_ip(ip):
@@ -92,8 +92,8 @@ class Network_Analyzer():
             if self.resolve: 
                 ptr = packet_utilities.get_domain_pointer_to_local_ip(ip)
                 name = packet_utilities.nslookup(ptr, self.gateway, "PTR")
-            self.hosts.append([ip, name])
-            return [ip, name]
+            self.hosts.append((ip, name))
+            return (ip, name)
         return False
     
     

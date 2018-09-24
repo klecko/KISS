@@ -1,5 +1,5 @@
 #KISS by KleSoft
-#23/09/18
+#24/09/18
 
 
 import threading
@@ -168,7 +168,8 @@ def configure_iptables(init, args=None):
             if arps_activated: os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
             if args.D_ENABLED: 
                 os.system("iptables -A FORWARD -p udp --dport 53 -j DROP")
-                os.system("iptables -A FORWARD -p tcp --dport 80 -m string --string 'POST' --algo bm -m string --string 'GET' --algo bm -j DROP")
+                os.system("iptables -A FORWARD -p tcp --dport 80 -m string --string 'GET' --algo bm -j DROP")
+                #os.system("iptables -A FORWARD -p tcp --dport 80 -m string --string 'POST' --algo bm -m string --string 'GET' --algo bm -j DROP")
             
             if args.J_ENABLED: 
                 os.system("iptables -A FORWARD -p tcp --sport 80 -m string --string 'ype: text/html' --algo bm -j DROP")

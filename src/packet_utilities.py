@@ -98,22 +98,24 @@ def nslookup(domain, ns_server="8.8.8.8", qtype="A", timeout=2, twice=True):
         if type(result) == bytes: result = result.decode("utf-8")
         return result
     else:
-        if not twice: 
-            #~ ans.show()
+        if twice:
+            return nslookup(domain, ns_server, qtype, timeout, False)
+        else:
             return None
-        else: return nslookup(domain, ns_server, qtype, timeout, False)
 
 
 def get_host(packet_load):
     """Gets the host a HTTP packet was sent to.
     
     Parameters:
-        packet_load (str): the load of the HTTP packet.
+        packet_load (str, bytes): the load of the HTTP packet.
     
     Returns:
         str: the host the packet was sent to.
     """
     
+    if type(packet_load) == bytes: packet_load = packet_load.decode()
+        
     pos1 = packet_load.find("Host: ")
     if pos1 != -1:
         pos2 = packet_load.find("\r", pos1)
@@ -131,6 +133,7 @@ def get_subhost(packet_load):
     Returns:
         str: the URL inside the host the packet was sent to.
     """
+    if type(packet_load) == bytes: packet_load = packet_load.decode()
     
     last_pos = packet_load.find(" HTTP/")
     if packet_load[:4] == "POST":

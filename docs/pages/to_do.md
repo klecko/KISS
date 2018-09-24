@@ -5,6 +5,7 @@
 - JS Injecter
 - Deauth Attack (maybe comes with a DHCP Spoofing attack)
 - Update documentation.
+- Add a little script to modify the config file from cmd.
 
 ### Incoming minor changes
 - Possibility of adding a target to JS Injecter.
@@ -21,5 +22,7 @@
 
 
 ### Bug fixes
+- When you disable some verbose messages for example https url stalker, [URLSTALKER] is still printed. Maybe this can be solved changing the way the verbose config is checked in log. Possible idea: with eval.
+- Fucking DNS iptables with GET and POST dont work correctly.
 - DNS Spoofing wikia.com to pokexperto.net some queries fails, probably because of pokexperto.net/index2.php . Investigate that.
 - When you DNS Spoof, some HTTP POST Packets are not spoofed (for example login in padventures.org). I think that even if they are, it redirects to the real host.

