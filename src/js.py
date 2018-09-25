@@ -11,8 +11,11 @@
 #sin embargo scapy me dice que mi paquete mide 1500 mientras que el paquete real mide 1514.
 #es posible que estos 14 sean por la capa Ether, ya que mi paquete con capa Ether tambien mide 1514.
 
-#probar a igualar opciones como ip.id, ip.ttl
+#UPDATE: todo era problema del kernel de ubuntu version 4.15
 
+#wikia.com/fandom/ a veces no funciona. no he comprobado los paquetes que llegan, pero parece que en los que
+#se envian hay un \r\d\r\d en mitad del load, y no esta mi codigo. probablemente eso haga que no funcione.
+#igual el codigo se esta añadiendo mal, o el chunked length esta cambiandose mal
 
 import threading
 import gzip
@@ -84,7 +87,7 @@ class Spoofed_HTTP_Load(bytes):
             chunk_start = load.find(b"\r\n")
             
             if chunk_start == -1:
-                print("CHUNK START NOT FOUND")
+                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET")
                 print("Returning", (self.injected_code + load).decode())
                 return self.injected_code + load 
 
@@ -108,7 +111,7 @@ class Spoofed_HTTP_Load(bytes):
             new_load = load
             attr_all = self._get_header_attribute(self, attr_name, new_load)
             if not attr_all:
-                print("Attribute", attr_name, "not found")
+                # ~ print("Attribute", attr_name, "not found")
                 return load
             
             if len(load) - len(attr_all) > length_needed: #si a pesar de quitarle el atributo sigue siendo muy largo, se lo quito entero
@@ -139,7 +142,7 @@ class Spoofed_HTTP_Load(bytes):
 
 
     def _shorten_load_if_needed(self, load, length_needed):
-        attributes = ["Date", "Expires", "Last-Modified", "Server", "X-Powered-By"] #not sure about the last one
+        attributes = ["Date", "Expires", "Last-Modified", "Server", "X-Powered-By", "X-Served-By", "X-Cache", "X-Cache-Hits", "X-Timer"] #not sure about those last X-*
         
         new_load = load
         for attr in attributes:
