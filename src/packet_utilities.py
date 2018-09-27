@@ -182,6 +182,11 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
             HTTP post packet.
     """
     
+    get_cookies = False
+    if "cookie" in "".join(relevant_attributes).lower():
+        get_cookies = True
+        
+    
     load = packet["Raw"].load.decode("utf-8", "ignore")
     form_load = load[load.find("\r\n\r\n")+4:]
     form_load_parsed = parse_qs(form_load,errors="backslashreplace")
@@ -192,9 +197,24 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     if relevant_attributes == "*":
         for item in form_load_parsed.items():
             data[item[0]] = item[1][0]
+        cookies = get_header_attribute_from_http_load("Cookie", load.encode()).decode()
+        if cookies: data["Cookies"] = cookies[8:-2]
     else:
         for attribute in relevant_attributes:
             possible_value = form_load_parsed.get(attribute)#get_attribute_from_packet_load(attribute, load)
             if possible_value:
                 data[attribute] = possible_value[0]
+        if get_cookies:
+            cookies = get_header_attribute_from_http_load("Cookie", load.encode()).decode()
+            if cookies: data["Cookies"] = cookies[8:-2]
     return data
+
+
+def get_header_attribute_from_http_load(attribute, load):
+    #Returns a string containing the attribute, its value and the \r\n
+    first_pos = load.find(attribute.encode())
+    if first_pos != -1:
+        last_pos = load.find(b"\r\n", first_pos) +2
+        data = load[first_pos:last_pos]
+        return data
+    return b""

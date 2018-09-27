@@ -45,6 +45,7 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             self.S_ENABLED = args.getboolean("sniff", "enabled", fallback="D34D")
             self.S_TIME_SECS = args.get("sniff", "time_limit", fallback="D34D")
             self.S_ATTRIBUTES = args.get("sniff", "attributes", fallback="D34D")
+            self.S_GET_EVERY_COOKIE = args.get("sniff", "get_every_cookie", fallback="D34D")
             self.S_TIME_SECS = int(self.S_TIME_SECS) if not self.S_TIME_SECS == '' else None
         
             #ARPS
@@ -69,6 +70,7 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             
             #JS
             self.J_ENABLED = args.getboolean("js", "enabled", fallback="D34D")
+            self.J_TARGET_IP = args.get("js", "target", fallback="D34D").lower()
             self.J_FILE = args.get("js", "file", fallback="D34D")
             self.J_TIME_SECS = args.get("js", "time_limit", fallback="D34D")
             self.J_TIME_SECS = int(selfJ_TIME_SECS) if not self.J_TIME_SECS == '' else None
@@ -97,6 +99,8 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             self.N_ENABLED = False
         
         #SNIFF
+        if self.S_ENABLED and not self.S_GET_EVERY_COOKIE:
+            log.warning("Missing HTTP Sniffer parameters in config file. Disabling HTTP Sniffer...")
         if self.S_ENABLED and self.S_ATTRIBUTES != "*":
             try:
                 f = open(self.S_ATTRIBUTES)
@@ -133,16 +137,10 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
                 self.D_ENABLED = False
         
         #JS
-        if self.J_ENABLED and not self.J_FILE:
+        if self.J_ENABLED and (not self.J_FILE or not self.J_TARGET_IP):
             log.warning("Missing JS parameters in config file. Disabling JS Injecter...")
             self.J_ENABLED = False
-        # ~ if self.J_ENABLED: #J_FILE is not a file but a http direction
-            # ~ try:
-                # ~ f = open(self.J_FILE)
-                # ~ f.close()
-            # ~ except FileNotFoundError:
-                # ~ log.warning("File", self.J_FILE, "could not be found. Disabling JS Injecter...")
-                # ~ self.J_ENABLED = False
+
         
         #NO PARTICULARES
         if self.D_ENABLED and not self.A_ENABLED:
@@ -263,7 +261,7 @@ def main():
         dns_spoofer.start()
    
     if args.S_ENABLED:
-        sniffer = sniffing_http.HTTP_Sniffer(exit_event, args.S_ATTRIBUTES, args.S_TIME_SECS)
+        sniffer = sniffing_http.HTTP_Sniffer(exit_event, args.S_ATTRIBUTES, args.S_GET_EVERY_COOKIE, args.S_TIME_SECS)
         sniffer.start()
         
     if args.U_ENABLED:
@@ -271,7 +269,7 @@ def main():
         url.start()
     
     if args.J_ENABLED:
-        js_injecter = js.JS_Injecter(exit_event, args.J_FILE, args.J_TIME_SECS)
+        js_injecter = js.JS_Injecter(exit_event, args.J_TARGET_IP, args.J_FILE, args.J_TIME_SECS)
         js_injecter.start()
         
     

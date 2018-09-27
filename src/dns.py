@@ -149,10 +149,9 @@ class DNS_Spoofer(threading.Thread):
     #This function is needed because when you send a packet, it can be sniffed by the
     #running sniff function. As our own packets must not be handled, checking if they
     #have already been handled is needed.
-    def _has_packet_been_handled(self, ack, seq, has_raw):
+    def _has_packet_been_handled(self, packet):
         """Checks if a packet has been handled, depending on its ack number,
-        seck number and if it has raw layer. Note: this last one should be 
-        changed to tcp checksum as in JS.
+        seq number and its TCP checksum.
         
         Parameters:
             ack (int): the ack number of the TCP packet.
@@ -162,7 +161,8 @@ class DNS_Spoofer(threading.Thread):
         Returns:
             bool: True if it has already been handled, False otherwise. 
             """
-        result = self.handled_http_packets.count((ack,seq,has_raw))
+
+        result = self.handled_http_packets.count((packet["TCP"].ack,packet["TCP"].seq,packet_utilities.get_checksum(packet, "TCP")))
         
         return True if result > 0 else False
 
@@ -214,19 +214,15 @@ class DNS_Spoofer(threading.Thread):
         """Adds a packet to the list of handled packets.
         
         It adds a tuple which contains the packet ack number, the packet seq 
-        number and a boolean according to if the packet has raw layer or not.
-        If this list is too large when a new packet is added (500+), first
-        480 elements are removed.
+        number and the packet TCP checksum.
         
         Parameters:
             packet (scapy.packet.Packet): handled packet
         """
         
-        self.handled_http_packets.append((packet.ack, packet.seq, packet.haslayer("Raw")))
+        data = (packet.ack, packet.seq, packet_utilities.get_checksum(packet, "TCP"))
+        self.handled_http_packets.append(data)
         #print(len(self.handled_http_packets))
-        if len(self.handled_http_packets) > 500:
-            self.handled_http_packets = self.handled_http_packets[480:]
-            print("[DNS] handled http packets length exceeded 500. Cleaning to last 20...")
         
         
     def _handle_http_packet(self, packet):
@@ -239,11 +235,7 @@ class DNS_Spoofer(threading.Thread):
             packet (scapy.packet.Packet): handled packet
         """
         
-        try:
-            a = packet.ack
-        except AttributeError:
-            packet.show()
-        if not self._has_packet_been_handled(packet.ack, packet.seq, packet.haslayer("Raw")):
+        if not self._has_packet_been_handled(packet):
             self._add_handled_packet(packet)
             
             host = packet_utilities.get_host(packet.load)
@@ -369,7 +361,7 @@ class DNS_Spoofer(threading.Thread):
         #con lo que puede perder algun paquete en ese proceso (cuando escribo esto aun no se ha dado el caso)
         
         #          es un paquete DNS y es IP (hay algunos que son ICMP host redirect) o bien es tcp, y en la capa raw tiene GET o POST
-            sniff(filter="udp or tcp and (dst port 80 or dst port 53 or src port 53)",
+            sniff(filter="udp or tcp and (dst port 80 or dst port 53)",# or src port 53)",
                   lfilter = lambda x: ((x.haslayer("DNS") and x.haslayer("IP")) or (x.haslayer("TCP") and x.haslayer("Raw") and ((b"POST" in x["Raw"].load) or (b"GET" in x["Raw"].load)))),
                   prn=self._handle_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
                   

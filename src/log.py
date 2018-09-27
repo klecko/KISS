@@ -9,7 +9,7 @@ if platform == "linux":
         DNS = '\033[92m'
         ARPS = '\033[93m'
         WARNING = '\033[43m'
-        URL = '\033[34m'
+        URLSTALKER = '\033[34m'
         INFO = '\033[95m'
         NETANALYZER = '\033[36m'
         SNIFF = '\033[96m'
@@ -46,6 +46,7 @@ class verbose(): #verbose class, which will contain an attribute for each module
         start = reader.getboolean("sniff", "start")
         finish = reader.getboolean("sniff", "finish")
         packet_found = reader.getboolean("sniff", "packet_found")
+        cookies_found = reader.getboolean("sniff", "cookies_found")
         results = reader.getboolean("sniff", "results")
         
     class arps():
@@ -104,6 +105,11 @@ class log(): #log class, which will contain a class for each module.
     def header(*msg):
         print(colors.HEADER, *msg, colors.ENDC)
         
+    def print_log_header(module, msg_key, module_key):
+        if verbose.verbose:
+            if eval("verbose." + module + "." + msg_key):
+                print(eval("colors." + module.upper()) + "[" + module_key + "]", colors.ENDC, end="")
+        
     
     class netanalyzer():
         def info(msg_key, **kwargs):
@@ -137,15 +143,16 @@ class log(): #log class, which will contain a class for each module.
     class sniff():
         def info(msg_key, **kwargs):
             if verbose.verbose and verbose.sniff.verbose:
-                print(colors.SNIFF + "[SNIFFER]", colors.ENDC, end="")
+                #print(colors.SNIFF + "[SNIFFER]", colors.ENDC, end="")
+                log.print_log_header("sniff", msg_key, "SNIFFER")
                 if msg_key == "start":
                     if verbose.sniff.start: 
-                        print("Sniffing HTTP post packets... ", end="")
+                        print("Sniffing HTTP packets... ", end="")
                         print("Time limit:", kwargs["timeout"], "seconds.") if kwargs["timeout"] else print("No time limit.")
                         
                 elif msg_key == "finish":
                     if verbose.sniff.finish:
-                        print("Sniffing HTTP post packets finished! ", end="")
+                        print("Sniffing HTTP packets finished! ", end="")
                         if kwargs["len"] > 0:
                             print(kwargs["len"], "packets found! Packets are saved in", kwargs["loc"], end="")
                         else:
@@ -154,6 +161,9 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key == "packet_found":
                     if verbose.sniff.packet_found: print("New packet found in host", kwargs["host"], "from IP", kwargs["src"])
                 
+                elif msg_key == "cookies_found":
+                    if verbose.sniff.cookies_found: print("New cookies found in host", kwargs["host"], "from IP", kwargs["src"] + ":", kwargs["cookies"])
+
                 else: log.warning("LOG ERROR while trying to log info in sniff. Unknown message key:", msg_key)
                     #print(colors.WARNING + "[WARNING]", colors.ENDC, "LOG ERROR while trying to log info in sniff. Unknown message key:", msg_key)
                 
@@ -167,7 +177,8 @@ class log(): #log class, which will contain a class for each module.
     class arps():
         def info(msg_key, **kwargs):
             if verbose.verbose and verbose.arps.verbose:
-                print(colors.ARPS + "[ARPS]", colors.ENDC, end="")
+                #print(colors.ARPS + "[ARPS]", colors.ENDC, end="")
+                log.print_log_header("arps", msg_key, "ARPS")
                 if msg_key == "start":
                     if verbose.arps.start:
                         print("ARP Spoofing", kwargs["target"], "with an interval of", kwargs["interval"], "secs. Disconnect: " + kwargs["disconnect"] + ". ", end = "")
@@ -192,8 +203,9 @@ class log(): #log class, which will contain a class for each module.
     
     class dns():
         def info(msg_key, **kwargs):
-            print(colors.DNS + "[DNS]", colors.ENDC, end="")
             if verbose.verbose and verbose.dns.verbose:
+                #print(colors.DNS + "[DNS]", colors.ENDC, end="")
+                log.print_log_header("dns", msg_key, "DNS")
                 if msg_key == "start":
                     if verbose.dns.start: 
                         print("DNS Spoofing started. ", end="")
@@ -220,8 +232,9 @@ class log(): #log class, which will contain a class for each module.
     
     class urlstalker():
         def info(msg_key, **kwargs):
-            print(colors.URL + "[URLStalker]", colors.ENDC, end="")
             if verbose.verbose and verbose.urlstalker.verbose:
+                #print(colors.URLSTALKER + "[URLStalker]", colors.ENDC, end="")
+                log.print_log_header("urlstalker", msg_key, "URLStalker")
                 if msg_key == "start":
                     if verbose.urlstalker.start:
                         print("URL Stalking started. ",end="")

