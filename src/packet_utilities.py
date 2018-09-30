@@ -121,7 +121,7 @@ def get_host(packet_load):
         pos2 = packet_load.find("\r", pos1)
         result = unquote(packet_load[pos1+6:pos2])
         return result
-    return None
+    return ""
 
         
 def get_subhost(packet_load):

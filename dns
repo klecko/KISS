@@ -5,7 +5,7 @@
 #to redirect every other page to a single IP address. There can only be one of those rules.
 #Other option is to place * as the IP. That means the domain won't be redirected.
 
-example.com maz-software.com
+example.com marca.com
 example.org padventures.org
 wikia.com pokexperto.net
 paypal.es 192.168.191.120

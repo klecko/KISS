@@ -74,10 +74,11 @@ class Spoofed_HTTP_Load(bytes):
             try:
                 load = action_f(load)
             except Exception as err:
-                #Sometimes decompressing fail, because i think we can not decompress a part of
+                #Sometimes decompressing fails, because i think we can not decompress a part of
                 #a gzip string. However, this doesnt seem a problem. The injected code is
                 #attached to the compressed packet load, and then it is compressed.
-                print("ERROR WITH GZIP ACTION",action.upper(),":", err)
+                #print("ERROR WITH GZIP ACTION",action.upper(),":", err)
+                log.js.error("gzip", action=action.upper(), err=err)
                 #print(load.decode("utf-8", "ignore"))
                 print(len(load))
                 raise

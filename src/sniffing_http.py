@@ -81,9 +81,10 @@ class HTTP_Sniffer(threading.Thread):
             log.sniff.info("packet_found", host=host, src=src)
         
         else:
-            cookies = self._get_cookies(packet)
-            if cookies:
-                log.sniff.info("cookies_found", host=host, src=src, cookies=cookies)
+            if self.get_every_cookie:
+                cookies = self._get_cookies(packet)
+                if cookies:
+                    log.sniff.info("cookies_found", host=host, src=src, cookies=cookies)
         
         self.packets_ids.append((packet.ack, packet.seq))
         

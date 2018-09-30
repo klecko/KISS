@@ -222,4 +222,8 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key=="finish":             print("JS Injecter finished.")
                 elif msg_key == "packet_handled":   print("Sent spoofed packet. Spoof load length:", kwargs["len_spoof_load"], "Real load length:", kwargs["len_real_load"])
                 else: log.warning("LOG ERROR while trying to log info in js. Unknown message key:", msg_key)
-       
+        
+        def error(msg_key, **kwargs):
+            print(colors.JS + "[JS]", colors.ENDC, end="")
+            
+            if msg_key == "gzip": log.error("ERROR WITH GZIP ACTION", kwargs["action"].upper(),":", kwargs["err"])

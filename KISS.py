@@ -45,7 +45,7 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             self.S_ENABLED = args.getboolean("sniff", "enabled", fallback="D34D")
             self.S_TIME_SECS = args.get("sniff", "time_limit", fallback="D34D")
             self.S_ATTRIBUTES = args.get("sniff", "attributes", fallback="D34D")
-            self.S_GET_EVERY_COOKIE = args.get("sniff", "get_every_cookie", fallback="D34D")
+            self.S_GET_EVERY_COOKIE = args.getboolean("sniff", "get_every_cookie", fallback="D34D")
             self.S_TIME_SECS = int(self.S_TIME_SECS) if not self.S_TIME_SECS == '' else None
         
             #ARPS
