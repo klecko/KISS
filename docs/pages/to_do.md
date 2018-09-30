@@ -8,7 +8,6 @@
 - Update documentation.
 
 ### Incoming minor changes
-- Beautiful JS log please
 - Think about making every 'packet load' attribute bytes, str or both.
 - Maybe file dns.py should be changed to not collide with dns from scapy.
 - Maybe everything imported from scapy should be changed to sc.*
