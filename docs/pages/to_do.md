@@ -2,17 +2,14 @@
 
 ### Incoming attacks and features
 - DoS Attack: probably [this one](https://www.giac.org/paper/gsec/313/naptha-type-denial-of-service-attack/100899)
-- JS Injecter (almost done)
 - Deauth Attack (maybe comes with a DHCP Spoofing attack)
 - Add a little script to modify the config file from cmd.
-- Update documentation.
+- Add JS Documentation in code, Update general documentation in github.
 
 ### Incoming minor changes
-- Think about making every 'packet load' attribute bytes, str or both.
 - Maybe file dns.py should be changed to not collide with dns from scapy.
 - Maybe everything imported from scapy should be changed to sc.*
 - Possibility of adding subnets as targets.
-- Compare packet_utilities.get_user_agents with JS_Injecter.get_attribute and other similar functions that search in packet loads.
 
 ### Bug fixes
 - JS Injecting seems not to work when chunked + gzip or when gzip fails.

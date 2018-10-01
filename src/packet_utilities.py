@@ -22,19 +22,6 @@ def get_checksum(pkt, layer):
         return chksum
 
 
-def get_user_agents(load):
-    """Gets the User Agents from a HTTP packet load.
-    
-    Parameters:
-        load (str): HTTP packet load.
-    
-    Returns:
-        str: string containing the User Agents of the load.
-    """
-    first_pos = load.find(b"User-Agent: ")+12
-    agent = load[first_pos:load.find(b"\r\n", first_pos)]
-    return agent
-
 
 def is_it_an_ip(s):
     """Checks if the given string is an IP Address or not.
@@ -146,35 +133,17 @@ def get_subhost(packet_load):
         return ""
         
     return unquote(packet_load[first_pos:last_pos])
-
-
-# ~ def get_attribute_from_packet_load(attribute, packet_load):
-        # ~ #Gets an attribute from the load of a packet. This load is located in the raw layer of the packet.
-        # ~ #Example: looking for 'pepito' in '...webm.orange.es%2F&usuario=pepito&dominio=orangecorreo.es&...'.
-        # ~ #Then we should do get_attribute_from_packet(usuario, packet_load)
-        
-        # ~ packet_load = packet_load.lower()
-        # ~ pos1 = packet_load.find(attribute + "=")
-        # ~ if pos1 != -1:
-            # ~ pos2 = packet_load.find("&", pos1) #it finds where the next attribute starts, which is the end of our attribute
-            # ~ if pos2 == -1:
-                # ~ #if it doesnt find it, it means the attribute is the last one, so it must get it from pos1 to the end of the string
-                # ~ result = unquote(packet_load[pos1+len(attribute)+1:])
-            # ~ else:
-                # ~ result = unquote(packet_load[pos1+len(attribute)+1:pos2]) #+1 is because of the '=': &usuario=pepito&
-            # ~ #if the username were 'pep&ito', it would be changed to 'pep%26ito' because it has been quoted. so i have to unquote it.
-            
-            # ~ return result
-        # ~ return None
     
             
 def get_relevant_data_from_http_packet(relevant_attributes, packet):
-    """Gets all the relevant data of a form from a HTTP post packet.
+    """Gets all the relevant data from the form data of a HTTP post packet,
+    including cookies.
     
     Parameters:
         relevant_attributes (list, str): this can be a list with every
             attribute that will be looked for, or a string with '*', meaning
-            that every attribute is relevant.
+            that every attribute is relevant. If 'cookie' is included in the
+            list, cookies will be also returned.
         packet (scapy.packet.Packet): HTTP post packet.
         
     Returns:
@@ -197,7 +166,7 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     if relevant_attributes == "*":
         for item in form_load_parsed.items():
             data[item[0]] = item[1][0]
-        cookies = get_header_attribute_from_http_load("Cookie", load.encode()).decode()
+        cookies = get_header_attribute_from_http_load("Cookie", load).decode()
         if cookies: data["Cookies"] = cookies[8:-2]
     else:
         for attribute in relevant_attributes:
@@ -205,14 +174,31 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
             if possible_value:
                 data[attribute] = possible_value[0]
         if get_cookies:
-            cookies = get_header_attribute_from_http_load("Cookie", load.encode()).decode()
+            cookies = get_header_attribute_from_http_load("Cookie", load).decode()
             if cookies: data["Cookies"] = cookies[8:-2]
     return data
 
-
+    
+    
 def get_header_attribute_from_http_load(attribute, load):
-    #Returns a string containing the attribute, its value and the \r\n
-    first_pos = load.find(attribute.encode())
+    """Gets a header attribute from a http load.
+    
+    Parameters:
+        attribute (bytes, str): the attribute that will be searched.
+        load (bytes, str): the load of the HTTP packet.
+    
+    Returns:
+        bytes: attribute, which includes key, value and \r\n.
+        
+    Example:
+        get_header_attribute_from_http_load("Content-Encoding", load) returns
+            b"Content-Encoding: gzip\r\n"
+    """
+    
+    if type(load) == str: load = load.encode()
+    if type(attribute) == str: attribute = attribute.encode()
+    
+    first_pos = load.find(attribute)
     if first_pos != -1:
         last_pos = load.find(b"\r\n", first_pos) +2
         data = load[first_pos:last_pos]

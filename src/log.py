@@ -82,6 +82,7 @@ class verbose(): #verbose class, which will contain an attribute for each module
         packet_handled = reader.getboolean("js", "packet_handled")
         empty_packet = reader.getboolean("js", "empty_packet")
         exceeded_len = reader.getboolean("js", "exceeded_len")
+        gzip = reader.getboolean("js", "gzip")
         
 
         
@@ -95,11 +96,26 @@ class log(): #log class, which will contain a class for each module.
     def info(header, *msg):
         print(colors.INFO + "[" + header + "]" + colors.ENDC, *msg)
     
-    def warning(*msg):
-        print(colors.WARNING + colors.BOLD + "[WARNING]" + colors.ENDC, *msg)
+    def warning(module_and_module_key, *msg):
+        print(colors.WARNING + colors.BOLD + "[WARNING]" + colors.ENDC + " ", end="")
+        
+        if type(module_and_module_key) == tuple:
+            print(eval("colors." + module_and_module_key[0].upper()) + "[" + module_and_module_key[1] + "]", colors.ENDC, end="")
+        elif type(module_and_module_key) == str:
+            print(eval("colors." + module_and_module_key.upper()) + "[" + module_and_module_key.upper() + "]", colors.ENDC, end="")
+
+        print(*msg)
+            
     
-    def error(*msg):
-        print(colors.FAIL + colors.BOLD + "[ERROR]" + colors.ENDC, *msg)
+    def error(module_and_module_key, *msg):
+        print(colors.FAIL + colors.BOLD + "[ERROR]" + colors.ENDC + " ", end="")
+        
+        if type(module_and_module_key) == tuple:
+            print(eval("colors." + module_and_module_key[0].upper()) + "[" + module_and_module_key[1] + "]", colors.ENDC, end="")
+        elif type(module_and_module_key) == str:
+            print(eval("colors." + module_and_module_key.upper()) + "[" + module_and_module_key.upper() + "]", colors.ENDC, end="")
+            
+        print(*msg)
         
     def header(*msg):
         print(colors.HEADER, *msg, colors.ENDC)
@@ -138,16 +154,12 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key == "finish":       print("Sniffing HTTP packets finished! ", end=""); print(kwargs["len"], "packets found! Packets are saved in", kwargs["loc"], end="") if kwargs["len"] > 0 else print("No packets found.", end="")
                 elif msg_key == "packet_found": print("New packet found in host", kwargs["host"], "from IP", kwargs["src"])
                 elif msg_key == "cookies_found":print("New cookies found in host", kwargs["host"], "from IP", kwargs["src"] + ":", kwargs["cookies"])
-
-                else: log.warning("LOG ERROR while trying to log info in sniff. Unknown message key:", msg_key)
-                    #print(colors.WARNING + "[WARNING]", colors.ENDC, "LOG ERROR while trying to log info in sniff. Unknown message key:", msg_key)
+                    
                 
         def error(msg_key, **kwargs):
-            print(colors.SNIFF + "[SNIFFER]", colors.ENDC, end="")
-            if msg_key == "permission_sniffing": log.error("PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
-            else: log.warning("LOG ERROR while trying to log error in sniff. Unknown message key:", msg_key)
-                #print(colors.WARNING + "[WARNING]", colors.ENDC, " LOG ERROR while trying to log error in sniff. Unknown message key:", msg_key)
-           
+            #print(colors.SNIFF + "[SNIFFER]", colors.ENDC, end="")
+            if msg_key == "permission_sniffing": log.error(("sniff", "SNIFFER"), "PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
+            
                 
                 
     class arps():
@@ -158,16 +170,15 @@ class log(): #log class, which will contain a class for each module.
                 if msg_key == "start":      print("ARP Spoofing", kwargs["target"], "with an interval of", kwargs["interval"], "secs. Disconnect: " + kwargs["disconnect"] + ". ", end = ""); print("Time limit:", kwargs["timeout"], "seconds.") if kwargs["timeout"] else print("No time limit.")
                 elif msg_key == "finish":   print("ARP Spoofing finished!", kwargs["target"], "is sending packets to", kwargs["gateway"], "again.") if kwargs["disconnect"] else print("ARP Spoofing finished! No more packets from", kwargs["target"])
                 
-                else: log.warning("LOG ERROR while trying to log info in arps. Unknown message key:", msg_key)
-                    #print(colors.WARNING + "[WARNING]", colors.ENDC, "LOG ERROR while trying to log info in arps. Unknown message key:", msg_key)
+                
         
         def warning(msg_key, **kwargs):
-            if log.check_verbose("warning", msg_key):
-                print(colors.ARPS + "[ARPS]", colors.ENDC, end="")
+            if log.check_verbose("arps", msg_key):
+                #print(colors.ARPS + "[ARPS]", colors.ENDC, end="")
                 
-                if msg_key == "target_everyone": log.warning("Targetting every device in the network does not support two-sides-MITM. Only client-->server is supported.")
+                if msg_key == "target_everyone": log.warning("arps", "Targetting every device in the network does not support two-sides-MITM. Only client-->server is supported.")
                 
-                else: log.warning( "LOG ERROR while trying to log warning in arps. Unknown message key:", msg_key)
+                
                     
     
     class dns():
@@ -181,15 +192,15 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key == "http_request": print("Target HTTP get request asking for", kwargs["host"] + ". Redirecting to", kwargs["spoofed_domain"])
                 elif msg_key == "resolve1":     print("Host", kwargs["supposed_ip"], "is not an IP. Resolving domain...")
                 elif msg_key == "resolve2":     print("Domain", kwargs["supposed_ip"], "resolved:", kwargs["true_ip"])
-                else: log.warning("LOG ERROR while trying to log info in dns. Unknown message key:", msg_key)
+                
                     
         def error(msg_key, **kwargs):
-            print(colors.DNS + "[DNS]", colors.ENDC, end="")
+            #print(colors.DNS + "[DNS]", colors.ENDC, end="")
             
-            if msg_key == "len":                    log.error("Spoofed packet length was more than expected. There was a difference of", kwargs["diff1"], "in SEQS+TCPLENS. After ussing solution 3 there's a difference of", kwargs["diff2"], "which is still bad.")
-            elif msg_key == "resolve":              log.error("Domain", kwargs["supposed_ip"], "could not be resolved, so it won't be redirected. Is it well written??")
-            elif msg_key == "permission_sniffing":  log.error("PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
-            else: log.warning("LOG ERROR while trying to log error in dns. Unknown message key:", msg_key)
+            if msg_key == "len":                    log.error("dns", "Spoofed packet length was more than expected. There was a difference of", kwargs["diff1"], "in SEQS+TCPLENS. After ussing solution 3 there's a difference of", kwargs["diff2"], "which is still bad.")
+            elif msg_key == "resolve":              log.error("dns", "Domain", kwargs["supposed_ip"], "could not be resolved, so it won't be redirected. Is it well written??")
+            elif msg_key == "permission_sniffing":  log.error("dns", "PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
+            
     
     
     
@@ -202,17 +213,17 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key == "finish":   print("URL Stalking finished.")
                 elif msg_key == "http":     print("HTTP url detected:", kwargs["url"], "from", kwargs["src"])
                 elif msg_key == "https":    print("HTTPS host detected:", kwargs["url"], "from", kwargs["src"])
-                else: log.warning("LOG ERROR while trying to log info in url. Unknown message key:", msg_key)
+                
     
     
     class js():
         def warning(msg_key, **kwargs):
             if log.check_verbose("js", msg_key):
-                print(colors.JS + "[JS]", colors.ENDC, end="")
+                #print(colors.JS + "[JS]", colors.ENDC, end="")
                 
-                if msg_key=="empty_packet":     log.warning("Packet with no load appart from http headers arrived. Ignoring and forwarding...")
-                elif msg_key=="exceeded_len":   log.warning("Despite having removed attributes, length was reduced from", kwargs["len_load"], "to", kwargs["len_new_load"], "and not to", kwargs["len_needed"], "(" + kwargs["len_difference"] + " more bytes than intended)")
-                else: log.warning("LOG ERROR while trying to log warning in js. Unknown message key:", msg_key)
+                if msg_key=="empty_packet":     log.warning("js", "Packet with no load appart from http headers arrived. Forwarding without injecting...")
+                elif msg_key=="exceeded_len":   log.warning("js", "Despite having removed attributes, length was reduced from", kwargs["len_load"], "to", kwargs["len_new_load"], "and not to", kwargs["len_needed"], "(" + kwargs["len_difference"] + " more bytes than intended)")
+                elif msg_key == "gzip":         log.warning("js", "Error decompressing gzip packet (probably the packet was not complete). Forwarding without injecting...")
                 
         def info(msg_key, **kwargs):
             if log.check_verbose("js", msg_key):
@@ -221,9 +232,5 @@ class log(): #log class, which will contain a class for each module.
                 if msg_key=="start":                print("JS Injecter started with target", kwargs["target"] + ". ",end=""); print("Time limit:", kwargs["timeout"], "seconds.") if kwargs["timeout"] else print("No time limit.")
                 elif msg_key=="finish":             print("JS Injecter finished.")
                 elif msg_key == "packet_handled":   print("Sent spoofed packet. Spoof load length:", kwargs["len_spoof_load"], "Real load length:", kwargs["len_real_load"])
-                else: log.warning("LOG ERROR while trying to log info in js. Unknown message key:", msg_key)
         
-        def error(msg_key, **kwargs):
-            print(colors.JS + "[JS]", colors.ENDC, end="")
-            
-            if msg_key == "gzip": log.error("ERROR WITH GZIP ACTION", kwargs["action"].upper(),":", kwargs["err"])
+

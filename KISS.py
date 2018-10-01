@@ -77,7 +77,7 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
             
             
         except Exception as err:
-            log.error("Error (" + str(err) + ") while trying to read values from config file. Please, download the config file again.")
+            log.error(None, "Error (" + str(err) + ") while trying to read values from config file. Please, download the config file again.")
             sys.exit()
         self.check_args()
         
@@ -85,74 +85,72 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
     def check_args(self):
         if "D34D" in self.__dict__.values():
             #si alguno de los atributos de la clase args contiene D34D, es porque no se ha encontrado alguno de los args
-            log.error("Missing conf parameters in config file. Leaving...")
+            log.error(None, "Missing conf parameters in config file. Leaving...")
             sys.exit()
             
         
         #PARTICULARES
         #NET
         if self.N_ENABLED and not (self.N_ACTIVE or self.N_PASSIVE):
-            log.warning("Net Analyzer is enabled, but mode was not chosen. Please enable active mode, passive mode or both. Disabling Net Analyzer...")
+            log.warning(None, "Net Analyzer is enabled, but mode was not chosen. Please enable active mode, passive mode or both. Disabling Net Analyzer...")
             self.N_ENABLED = False
         if self.N_ENABLED and not packet_utilities.is_it_an_ip(self.N_GATEWAY_IP):
-            log.warning("Gateway IP Address of module Net Analyzer is not valid. Disabling Net Analyzer...")
+            log.warning(None, "Gateway IP Address of module Net Analyzer is not valid. Disabling Net Analyzer...")
             self.N_ENABLED = False
         
         #SNIFF
-        if self.S_ENABLED and not self.S_GET_EVERY_COOKIE:
-            log.warning("Missing HTTP Sniffer parameters in config file. Disabling HTTP Sniffer...")
         if self.S_ENABLED and self.S_ATTRIBUTES != "*":
             try:
                 f = open(self.S_ATTRIBUTES)
                 f.close()
             except FileNotFoundError:
-                log.warning("File", self.S_ATTRIBUTES, "could not be found. Disabling Sniffer...")
+                log.warning(None, "File", self.S_ATTRIBUTES, "could not be found. Disabling Sniffer...")
                 self.S_ENABLED = False
         
         #ARPS
         if self.A_ENABLED and (not self.A_TARGET_IP or not self.A_GATEWAY_IP or not self.A_INTERVAL):
             #si algun valor esta vacio... solo TIME_SECS y DISCONNECT pueden estar vacios o ser None/False
-            log.warning("Missing ARPS parameters in config file. Disabling ARPS...")
+            log.warning(None, "Missing ARPS parameters in config file. Disabling ARPS...")
             self.A_ENABLED = False
         if self.A_ENABLED and self.A_INTERVAL == 0:
-            log.warning("ARPS interval can't be 0. Setting to 1...")
+            log.warning(None, "ARPS interval can't be 0. Setting to 1...")
             self.A_INTERVAL = 1
         if self.A_ENABLED and not packet_utilities.is_it_an_ip(self.A_GATEWAY_IP):
-            log.warning("Gateway IP Address of module ARP Spoofing is not valid. Disabling ARP Spoofing...")
+            log.warning(None, "Gateway IP Address of module ARP Spoofing is not valid. Disabling ARP Spoofing...")
             self.A_ENABLED = False
-        if self.A_ENABLED and not packet_utilities.is_it_an_ip(self.A_TARGET_IP):
-            log.warning("Target IP Address of module ARP Spoofing is not valid. Disabling ARP Spoofing...")
+        if self.A_ENABLED and (not packet_utilities.is_it_an_ip(self.A_TARGET_IP) and self.A_TARGET_IP != "everyone"):
+            log.warning(None, "Target IP Address of module ARP Spoofing is not valid. Disabling ARP Spoofing...")
             self.A_ENABLED = False
         
         #DNS
         if self.D_ENABLED and not self.D_FILE:
-            log.warning("Missing DNS parameters in config file. Disabling DNS Spoofer...")
+            log.warning(None, "Missing DNS parameters in config file. Disabling DNS Spoofer...")
             self.D_ENABLED = False
         if self.D_ENABLED:
             try:
                 f = open(self.D_FILE)
                 f.close()
             except FileNotFoundError:
-                log.warning("File", self.D_FILE, "could not be found. Disabling DNS Spoofer...")
+                log.warning(None, "File", self.D_FILE, "could not be found. Disabling DNS Spoofer...")
                 self.D_ENABLED = False
         
         #JS
         if self.J_ENABLED and (not self.J_FILE or not self.J_TARGET_IP):
-            log.warning("Missing JS parameters in config file. Disabling JS Injecter...")
+            log.warning(None, "Missing JS parameters in config file. Disabling JS Injecter...")
             self.J_ENABLED = False
 
         
         #NO PARTICULARES
         if self.D_ENABLED and not self.A_ENABLED:
             #dns sin arps esta feo
-            log.warning("DNS Spoofing can't be done without ARP Spoofing. Please enable ARPS. Disabling DNS...")
+            log.warning(None, "DNS Spoofing can't be done without ARP Spoofing. Please enable ARPS. Disabling DNS...")
             self.D_ENABLED = False
             
         if self.S_ENABLED and not self.A_ENABLED:
-            log.warning("ARP Spoofing is disabled! Only packets from the local machine will be sniffed. You can activate it in the config file.")
+            log.warning(None, "ARP Spoofing is disabled! Only packets from the local machine will be sniffed. You can activate it in the config file.")
             
         if not self.N_ENABLED and not self.S_ENABLED and not self.A_ENABLED and not self.D_ENABLED and not self.U_ENABLED and not self.J_ENABLED:
-            log.error("No module is enabled. Leaving...")
+            log.error(None, "No module is enabled. Leaving...")
             sys.exit()
         
         log.info("CONFIG", "Config file is OK!")
@@ -180,14 +178,14 @@ def configure_iptables(init, args=None):
     else:
         if init:
             arps_activated = (args.A_ENABLED or args.N_PASSIVE_ARPS_EVERYONE)
-            if arps_activated: log.warning("Make sure Routing and Remote Access Service is activated.")
-            if args.D_ENABLED: log.warning("Windows is not supported due to the lack of iptables. DNS Spoofing will probably not work correctly.")
+            if arps_activated: log.warning(None, "Make sure Routing and Remote Access Service is activated.")
+            if args.D_ENABLED: log.warning(None, "Windows is not supported due to the lack of iptables. DNS Spoofing will probably not work correctly.")
             
             
 def check_privileges():
     if platform == "linux":
         if os.getuid() != 0:
-            log.error("Admin privileges are required for actions such as sniffing and sending packets. Did you run KISS as root?")
+            log.error(None, "Admin privileges are required for actions such as sniffing and sending packets. Did you run KISS as root?")
             sys.exit()
             
 def intro(quality):
@@ -222,10 +220,10 @@ def dependencias():
     content = f.read()
     f.close()
     if scapy.VERSION < "2.4.0":
-        log.error("Scapy " + scapy.VERSION + "is not supported. Please download Scapy +2.4.0.")
+        log.error(None, "Scapy " + scapy.VERSION + "is not supported. Please download Scapy +2.4.0.")
         sys.exit()
     if not "KLECKO" in content:
-        log.error("Your sendrecv.py Scapy file is not KISS custom file. Please move files in scapy_files folder to the Scapy directory.")
+        log.error(None, "Your sendrecv.py Scapy file is not KISS custom file. Please move files in scapy_files folder to the Scapy directory.")
         sys.exit()
     
 

