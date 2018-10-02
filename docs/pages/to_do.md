@@ -7,7 +7,6 @@
 - Add JS Documentation in code, Update general documentation in github.
 
 ### Incoming minor changes
-- Check if all those things of the spoofed packet copied from the original packet in JS Injecter are necessary or not. 
 - Maybe file dns.py should be changed to not collide with dns from scapy.
 - Maybe everything imported from scapy should be changed to sc.*
 - Possibility of adding subnets as targets.
