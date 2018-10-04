@@ -198,7 +198,7 @@ class DNS_Spoofer(threading.Thread):
         #There's a problem when the load is increased, because the server says that he has read
         #more bytes than the bytes that the client theorically sent. 
         #Example: if the original get request is 20 bytes long, and then I change it to 25,
-        #the server says that he has received 25 bytes. As the client theorically sent only 20,
+        #the server says that he has received a request of 25 bytes. As the client theorically sent only 20,
         #an error occurs and it ignores what the server sends. There's no problem if he says
         #that he has read less bytes, so we simply take out user agents to reduce load length.
         if len(p.load) > len(packet.load): 
