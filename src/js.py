@@ -31,7 +31,7 @@ class Spoofed_HTTP_Load(bytes):
         elif action == "decompress": action_f = gzip.decompress
         else: print("ERROR UNKNOWN ACTION", action); return
         
-        if "gzip" in self.content_encoding_header:
+        if self.should_be_compressed and "gzip" in self.content_encoding_header:
             load = action_f(load)
             action_done = True
         return action_done, load
@@ -62,14 +62,20 @@ class Spoofed_HTTP_Load(bytes):
         # ~ return load
         
         
-    def _update_and_add_chunk_length_if_needed(self, load, b_chunk_length):
+    def add_chunk_length_if_needed(self, load):
         #CAMBIAR PARA QUE LO HAGA SEGUN LA LONGITUD DE LA LOAD
-        if b_chunk_length:
-            int_chunk_length = int(b_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
-            new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
-            new_b_chunk_length = hex(new_int_chunk_length)[2:].encode() + b"\r\n" #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
-            return new_b_chunk_length + load
+        if "chunked" in self.transfer_encoding_header:
+            hex_new_chunk_length = hex(len(load))[2:].encode()
+            all_new_chunk_length = hex_new_chunk_length + b"\r\n"
+            load = all_new_chunk_length + load
         return load
+        
+        #if b_chunk_length:
+        #    int_chunk_length = int(b_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
+        #    new_int_chunk_length = int_chunk_length + len(self.injected_code) #le sumo la longitud del codigo
+        #    new_b_chunk_length = hex(new_int_chunk_length)[2:].encode() + b"\r\n" #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
+        #    return new_b_chunk_length + load
+        #return load
     
     
     def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
@@ -131,8 +137,8 @@ class Spoofed_HTTP_Load(bytes):
             pos = load.find(b"\r\n")
             chunk_len = load[:pos+2]
             new_load = load.replace(chunk_len, b"")
-            return new_load, chunk_len
-        return load, b""
+            return new_load
+        return load
     
     def __new__(self, real_load, injected_code):
         #le quito chunked
@@ -154,7 +160,7 @@ class Spoofed_HTTP_Load(bytes):
             
         spoof_load = spoof_load.split(b"\r\n\r\n")
         
-        spoof_load[1], chunk_length = self._remove_chunk_length_if_needed(self, spoof_load[1]) #le quito chunked
+        spoof_load[1] = self._remove_chunk_length_if_needed(self, spoof_load[1]) #le quito chunked
         try:
             self.should_be_compressed, spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress") #descomprimo
             #si se ha podido hacer, spoof_load[1] esta descomprimido, y self.should_be_compressed es True
@@ -165,8 +171,7 @@ class Spoofed_HTTP_Load(bytes):
             #PENSAR COMO HACER ESTO DE UNA MEJOR FORMA, USANDO SHOULD BE COMPRESSED. LO VOY A HACER CHAPUZA PARA PROBAR.
             
             self.injected_code = self._gzip_action_if_needed(self, spoof_load[1], "compress")
-            spoof_load[1] = self.injected_code + spoof_load[1] #añado codigo
-            
+            self.should_be_compressed = False
         
         except Exception as err:
             #In this cases, the packet is not spoofed and the real packet is forwarded.
