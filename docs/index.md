@@ -11,7 +11,7 @@ Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for netwo
 
  - **Sniffing** HTTP post packets, which gets interesting form values, such as users and passwords. Those values can be customized.
 
- - **MITM** with ARP Spoofing, which poisons the ARP cache of the target with (gateway_ip, your_mac_addr). so that all the traffic that the target sends to the gateway is intercepted. This also done the other way round (client-->gateway and gateway-->client). It also exists the possibility of targeting the whole network *(in development)*.  
+ - **MITM** with ARP Spoofing, which poisons the ARP cache of the target with (gateway_ip, your_mac_addr). so that all the traffic that the target sends to the gateway is intercepted. This also done the other way round (client-->gateway and gateway-->client). It also exists the possibility of targeting the whole network.  
 
  - **DNS Spoofing**, which sends spoofed answers to DNS Queries in order to redirect domains to fake IPs, with a great customization of target domains and hosts.
 
@@ -22,6 +22,7 @@ Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for netwo
 
 
 # Requirements
+- Linux (KISS is based in iptables by the moment, so it needs Linux)
 - Python v3.7
 - Scapy v2.4.0
 - Custom Scapy files included in `scapy_files` folder. They must be moved to Scapy directory.
