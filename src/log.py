@@ -78,9 +78,9 @@ class verbose(): #verbose class, which will contain an attribute for each module
         start = reader.getboolean("js", "start")
         finish = reader.getboolean("js", "finish")
         packet_handled = reader.getboolean("js", "packet_handled")
-        empty_packet = reader.getboolean("js", "empty_packet")
+        gzipped_empty_packet = reader.getboolean("js", "gzipped_empty_packet")
         exceeded_len = reader.getboolean("js", "exceeded_len")
-        gzip = reader.getboolean("js", "gzip")
+        gzipped_uncomplete_packet = reader.getboolean("js", "gzipped_uncomplete_packet")
         
 
         
@@ -219,10 +219,10 @@ class log(): #log class, which will contain a class for each module.
             if log.check_verbose("js", msg_key):
                 #print(colors.JS + "[JS]", colors.ENDC, end="")
                 
-                if msg_key=="empty_packet":     log.warning("js", "Packet with no load appart from http headers arrived. Forwarding without injecting...")
-                elif msg_key=="exceeded_len":   log.warning("js", "Despite having removed attributes, length was reduced from", kwargs["len_load"], "to", kwargs["len_new_load"], "and not to", kwargs["len_needed"], "(" + kwargs["len_difference"] + " more bytes than intended)")
-                elif msg_key == "gzip":         log.warning("js", "EOFError decompressing gzip packet (probably the packet was not complete). Forwarding without injecting...")
-                
+                if msg_key=="gzipped_empty_packet":     	log.warning("js", "Gzipped packet with no load appart from http headers arrived. Forwarding without injecting...")
+                elif msg_key=="exceeded_len":   			log.warning("js", "Despite having removed attributes, length was reduced from", kwargs["len_load"], "to", kwargs["len_new_load"], "and not to", kwargs["len_needed"], "(" + kwargs["len_difference"] + " more bytes than intended)")
+                elif msg_key=="gzipped_uncomplete_packet":	log.warning("js", "EOFError decompressing gzip packet (probably the packet was not complete). Forwarding without injecting...")
+               
         def info(msg_key, **kwargs):
             if log.check_verbose("js", msg_key):
                 print(colors.JS + "[JS]", colors.ENDC, end="")
