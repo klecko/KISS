@@ -16,6 +16,7 @@ class URL_Stalker(threading.Thread):
     IP Forwarding needed:
         echo 1 > /proc/sys/net/ipv4/ip_forward
     """
+    
     def __init__(self, exit_event, timeout):
         """Creates the thread.
         
@@ -30,6 +31,7 @@ class URL_Stalker(threading.Thread):
         super().__init__()
         self.exit_event = exit_event
         self.timeout=timeout
+        
         
     def _handle_packet(self, packet):
         """Handles every http or https packet, and shows the URL it is sent to.
@@ -48,6 +50,7 @@ class URL_Stalker(threading.Thread):
         else:
             print("unknown packet received:")
             packet.summary()
+            
         
     def run(self):
         """Method representing the thread's activity. It is started when start
@@ -55,6 +58,7 @@ class URL_Stalker(threading.Thread):
         
         Sniffes every http or https sent packet and shows its URL destination.
         """
+        
         log.urlstalker.info("start",timeout=self.timeout)
         
         sniff(filter="tcp and (dst port 80 or dst port 443)",

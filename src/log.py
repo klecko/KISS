@@ -80,10 +80,7 @@ class verbose(): #verbose class, which will contain an attribute for each module
         packet_handled = reader.getboolean("js", "packet_handled")
         gzipped_empty_packet = reader.getboolean("js", "gzipped_empty_packet")
         exceeded_len = reader.getboolean("js", "exceeded_len")
-        gzipped_uncomplete_packet = reader.getboolean("js", "gzipped_uncomplete_packet")
-        
-
-        
+        gzipped_uncomplete_packet = reader.getboolean("js", "gzipped_uncomplete_packet") 
     
 
 class log(): #log class, which will contain a class for each module.
@@ -103,7 +100,6 @@ class log(): #log class, which will contain a class for each module.
             print(eval("colors." + module_and_module_key.upper()) + "[" + module_and_module_key.upper() + "]", colors.ENDC, end="")
 
         print(*msg)
-            
     
     def error(module_and_module_key, *msg):
         print(colors.FAIL + colors.BOLD + "[ERROR]" + colors.ENDC + " ", end="")
@@ -125,7 +121,6 @@ class log(): #log class, which will contain a class for each module.
         if verbose.verbose:
             if log.check_verbose(module, msg_key):
                 print(eval("colors." + module.upper()) + "[" + module_key + "]", colors.ENDC, end="")
-    
     
     class netanalyzer():
         def info(msg_key, **kwargs):
@@ -157,8 +152,7 @@ class log(): #log class, which will contain a class for each module.
         def error(msg_key, **kwargs):
             #print(colors.SNIFF + "[SNIFFER]", colors.ENDC, end="")
             if msg_key == "permission_sniffing": log.error(("sniff", "SNIFFER"), "PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
-            
-                
+               
                 
     class arps():
         def info(msg_key, **kwargs):
@@ -168,15 +162,12 @@ class log(): #log class, which will contain a class for each module.
                 if msg_key == "start":      print("ARP Spoofing", kwargs["target"], "with an interval of", kwargs["interval"], "secs. Disconnect: " + kwargs["disconnect"] + ". ", end = ""); print("Time limit:", kwargs["timeout"], "seconds.") if kwargs["timeout"] else print("No time limit.")
                 elif msg_key == "finish":   print("ARP Spoofing finished!", kwargs["target"], "is sending packets to", kwargs["gateway"], "again.") if kwargs["disconnect"] else print("ARP Spoofing finished! No more packets from", kwargs["target"])
                 
-                
-        
+
         def warning(msg_key, **kwargs):
             if log.check_verbose("arps", msg_key):
                 #print(colors.ARPS + "[ARPS]", colors.ENDC, end="")
                 
-                if msg_key == "target_everyone": log.warning("arps", "Targetting every device in the network does not support two-sides-MITM. Only client-->server is supported.")
-                
-                
+                if msg_key == "target_everyone": log.warning("arps", "Targetting every device in the network does not support two-sides-MITM. Only client-->server is supported.")    
                     
     
     class dns():
@@ -197,11 +188,9 @@ class log(): #log class, which will contain a class for each module.
             
             if msg_key == "len":                    log.error("dns", "Spoofed packet length was more than expected. There was a difference of", kwargs["diff1"], "in SEQS+TCPLENS. After ussing solution 3 there's a difference of", kwargs["diff2"], "which is still bad.")
             elif msg_key == "resolve":              log.error("dns", "Domain", kwargs["supposed_ip"], "could not be resolved, so it won't be redirected. Is it well written??")
-            elif msg_key == "permission_sniffing":  log.error("dns", "PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")
-            
+            elif msg_key == "permission_sniffing":  log.error("dns", "PermissionError at sniffing: ", kwargs["err"].strerror + "; number:", str(kwargs["err"].errno) + ". Are you admin?")   
     
-    
-    
+ 
     class urlstalker():
         def info(msg_key, **kwargs):
             if log.check_verbose("urlstalker", msg_key):
@@ -211,8 +200,7 @@ class log(): #log class, which will contain a class for each module.
                 elif msg_key == "finish":   print("URL Stalking finished.")
                 elif msg_key == "http":     print("HTTP url detected:", kwargs["url"], "from", kwargs["src"])
                 elif msg_key == "https":    print("HTTPS host detected:", kwargs["url"], "from", kwargs["src"])
-                
-    
+
     
     class js():
         def warning(msg_key, **kwargs):
@@ -230,5 +218,3 @@ class log(): #log class, which will contain a class for each module.
                 if msg_key=="start":                print("JS Injecter started with target", kwargs["target"] + ". ",end=""); print("Time limit:", kwargs["timeout"], "seconds.") if kwargs["timeout"] else print("No time limit.")
                 elif msg_key=="finish":             print("JS Injecter finished.")
                 elif msg_key == "packet_handled":   print("Sent spoofed packet. Spoof load length:", kwargs["len_spoof_load"], "Real load length:", kwargs["len_real_load"])
-        
-

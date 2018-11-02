@@ -15,6 +15,7 @@ def get_checksum(pkt, layer):
     Returns:
         str: the checksum desired.
     """
+    
     if pkt[layer].chksum:
         return pkt[layer].chksum
     else: #if the chksum is None, it calculates it
@@ -32,6 +33,7 @@ def is_it_an_ip(s):
     Returns:
         bool: True if it is an IP Address, False otherwise
     """
+    
     if s.replace(".","").isnumeric():
         parts = s.split(".")
         if len(parts) == 4:
@@ -55,6 +57,7 @@ def get_domain_pointer_to_local_ip(ip):
         get_domain_pointer_to_local_ip("192.168.191.120") returns
             120.191.168.192.in-addr.arpa
     """
+    
     ip_split = ip.split(".")
     ip_split = ip_split[::-1]
     ip_pointer = ".".join(ip_split) + ".in-addr.arpa"
@@ -120,6 +123,7 @@ def get_subhost(packet_load):
     Returns:
         str: the URL inside the host the packet was sent to.
     """
+    
     if type(packet_load) == bytes: packet_load = packet_load.decode()
     
     last_pos = packet_load.find(" HTTP/")
@@ -178,8 +182,7 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
             if cookies: data["Cookies"] = cookies[8:-2]
     return data
 
-    
-    
+
 def get_header_attribute_from_http_load(attribute, load):
     """Gets a header attribute from a http load.
     

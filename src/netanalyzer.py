@@ -17,6 +17,7 @@ class Network_Analyzer():
     Performs active and passive scanning of the network in order to detect
     devices.
     """
+    
     def __init__(self, gateway, resolve, active, passive, passive_arps_everyone, passive_timeout=None):
         """Creates the thread.
         
@@ -35,6 +36,7 @@ class Network_Analyzer():
             As a Thread, it can also have any of a thread parameters. See
             help(threading.Thread) for more help.
         """
+        
         self.gateway = gateway
         self.resolve = resolve
         self.active = active
@@ -87,6 +89,7 @@ class Network_Analyzer():
                 if it was added.
             bool: False if it was not a new IP.
         """
+        
         if self._is_it_a_new_ip(ip):
             name = None
             if self.resolve: 
@@ -180,7 +183,6 @@ class Network_Analyzer():
         log.netanalyzer.info("finish", type="passive", time=round(time.time()-self.start_time,2), devices=len(self.hosts))
 
 
-        
     def start(self):
         """Performs the network scanning."""
         
@@ -197,11 +199,3 @@ class Network_Analyzer():
                 self._passive_scanning()
             except KeyboardInterrupt:
                 self.stop = True
-                
-
-        
-            
-
-
-
-#analyze_network("192.168.191.1", True)

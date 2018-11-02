@@ -31,6 +31,7 @@ def save_packets(packets):
     
     return filename
 
+
 def get_lines_from_file(loc):
     """Reads the file and returns a list with every line.
     

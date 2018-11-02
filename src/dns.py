@@ -34,6 +34,7 @@ class DNS_Spoofer(threading.Thread):
             As a Thread, it can also have any of a thread parameters. See
             help(threading.Thread) for more help.
         """
+        
         super().__init__()
         self.exit_event = exit_event
         self.timeout = timeout
@@ -90,7 +91,6 @@ class DNS_Spoofer(threading.Thread):
             WHERE default_redirect IS
                 ("93.184.216.34", "example.com")
         """
-        
         
         new_redirects = {}
         
@@ -154,15 +154,13 @@ class DNS_Spoofer(threading.Thread):
         seq number and its TCP checksum.
         
         Parameters:
-            ack (int): the ack number of the TCP packet.
-            seq (int): the seq number of the TCP packet.
-            has_raw (bool): True if the packet has raw layer, False otherwise.
+            packet (scapy.packet.Packet): the packet that may has been handled.
             
         Returns:
             bool: True if it has already been handled, False otherwise. 
-            """
+        """
 
-        result = self.handled_http_packets.count((packet["TCP"].ack,packet["TCP"].seq,packet_utilities.get_checksum(packet, "TCP")))
+        result = self.handled_http_packets.count((packet["TCP"].ack,packet["TCP"].seq, packet_utilities.get_checksum(packet, "TCP")))
         
         return True if result > 0 else False
 
@@ -272,12 +270,6 @@ class DNS_Spoofer(threading.Thread):
         an=DNSRR(rrname=packet["DNS"].qd.qname, rdata=ip_redirect, ttl=1047)) / Raw(load="KISS")
         
         send(answer, verbose=0)
-        
-        
-        # ~ print(packet.summary())
-        # ~ print(answer.summary())
-        # ~ packet.show()
-        # ~ answer.show2()
     
     
     def _forward_dns_packet(self, packet):
@@ -288,17 +280,14 @@ class DNS_Spoofer(threading.Thread):
                 necessarily a DNS Query.
         """
         
-        
         pkt_redirect = IP(src=packet["IP"].src, dst=packet["IP"].dst)/ \
         UDP(sport=packet["UDP"].sport, dport=packet["UDP"].dport)/ \
         packet.getlayer("DNS")/Raw(load="KISS")
         #DNS Is the last layer, there are no more layers inside it, so i can do that.
-
-            
+         
         send(pkt_redirect, verbose=0)
 
 
-    
     def _handle_dns_packet(self, packet):
         """Handles a DNS packet. 
         
@@ -344,16 +333,16 @@ class DNS_Spoofer(threading.Thread):
             self._handle_dns_packet(packet)
         elif packet.haslayer("Raw"):# and b"GET" in packet["Raw"].load:
             self._handle_http_packet(packet)
-        
             
             
     def run(self):
         """Method representing the thread's activity. It is started when start
         function is called.
         
-        It sniffes every DNS packet and every HTTP request packet and handles
-        them, deciding to spoof it or not.
+        It intercepts every DNS packet and every HTTP request packet and 
+        handles them, deciding to spoof it or not.
         """
+        
         log.dns.info("start",timeout=self.timeout)
         
         try:
@@ -372,10 +361,4 @@ class DNS_Spoofer(threading.Thread):
             log.dns.error("permission_sniffing", err = err)
             
         log.dns.info("finish")
-        
-        
-        
-
-
-        
 

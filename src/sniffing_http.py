@@ -27,6 +27,7 @@ class HTTP_Sniffer(threading.Thread):
             As a Thread, it can also have any of a thread parameters. See
             help(threading.Thread) for more help.
         """
+        
         super().__init__()
         self.exit_event = exit_event
         self.timeout = timeout
@@ -68,12 +69,28 @@ class HTTP_Sniffer(threading.Thread):
     
     
     def _get_cookies(self, packet):
+		"""Gets the cookies from a http packet.
+		
+		Parameters:
+			packet (scapy.packet.Packet): the packet from which cookies will
+				be obtained.
+				
+		Returns:
+			str: the content of the Cookie http header.
+		"""
+		
         cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode()
         if cookies: return cookies[8:-2]
         else: return ""
             
+            
     def _handle_packet(self, packet):
-        """Handles every HTTP post packet, logging when it is called."""
+        """Handles every HTTP post packet.
+
+        Parameters:
+            packet (scapy.packet.Packet): the packet that will be handled.
+        """
+        
         host = packet_utilities.get_host(packet["Raw"].load.decode('utf-8', "ignore"))
         src=packet["IP"].src
         
@@ -88,6 +105,7 @@ class HTTP_Sniffer(threading.Thread):
         
         self.packets_ids.append((packet.ack, packet.seq))
         
+        
     def run(self):
         """Method representing the thread's activity. It is started when start
         function is called.
@@ -95,6 +113,7 @@ class HTTP_Sniffer(threading.Thread):
         Sniffs every HTTP post packet, saying when it gets one of them. When
         finished, it displays all the information and save the packets.
         """
+        
         #SNIFF, al tener stopperTimeout y stopper, no es la funcion original de Scapy, sino una modificada por mi
         #ya que la original no tenía manera de pararse cuando se quisiera. más informacion en sendrecv de Scapy
         #lo malo de esto es que para de sniffear cada stopperTimeout segundos para comprobar si stopper devuelve True,
@@ -114,9 +133,3 @@ class HTTP_Sniffer(threading.Thread):
             log.sniff.error("permission_sniffing", err=err)
         self._results(packets)
         
-    
-
-
-    
-
-
