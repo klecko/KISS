@@ -69,16 +69,16 @@ class HTTP_Sniffer(threading.Thread):
     
     
     def _get_cookies(self, packet):
-		"""Gets the cookies from a http packet.
-		
-		Parameters:
-			packet (scapy.packet.Packet): the packet from which cookies will
-				be obtained.
-				
-		Returns:
-			str: the content of the Cookie http header.
-		"""
-		
+        """Gets the cookies from a http packet.
+        
+        Parameters:
+            packet (scapy.packet.Packet): the packet from which cookies will
+                be obtained.
+                
+        Returns:
+            str: the content of the Cookie http header.
+        """
+        
         cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode()
         if cookies: return cookies[8:-2]
         else: return ""
