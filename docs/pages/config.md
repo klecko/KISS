@@ -14,7 +14,8 @@
 ## Sniff
  - **Enabled**: enables the attack (0: disabled, 1: enabled)
  - **Time_limit**: time in seconds the sniffer will remain active. Leaving it empty means no time limit (until Ctrl-C is pressed)
- - **Attributes**: location of a file containing the form keys that will be detected in HTTP post packets. Using '*' is also possible for getting every value.
+ - **Attributes**: location of a file containing the form keys that will be detected and shown in HTTP post packets. Using * is also possible for getting every value, including cookies.
+ - **Get_every_cookie**: if set to 1, KISS will log each time the cookie of a HTTP packet is sniffed. Also, if attributes is not *, cookies is added to it.
 
 ## ARPS
 - **Enabled**: enables the attack (0: disabled, 1: enabled).
@@ -29,8 +30,13 @@
 - **File**: location of the dns file, where the domains and the IPs they will be redirected to are established.
 - **Time_limit**: time in seconds the attack will last. Leaving it empty means no time limit (until Ctrl-C is pressed).
 
+## URLSTALKER
+- **Enabled**: enables the attack (0: disabled, 1: enabled).
+- **Time_limit**: time in seconds the attack will last. Leaving it empty means no time limit (until Ctrl-C is pressed).
+
 ## JS
 - **Enabled**: enables the attack (0: disabled, 1: enabled).
+- **Target**: the IP of the victim.
 - **File**: location of the JS file that will be injected.
 - **Time_limit**: time in seconds the attack will last. Leaving it empty means no time limit (until Ctrl-C is pressed).
 

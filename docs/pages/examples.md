@@ -1,4 +1,5 @@
 # Usage examples
+Here you will find some attacks and tests you can perform with KISS. Not every possibility is listed, so reading the [Config file](https://klesoft.github.io/KISS/pages/config) page is recommeded. Note that most of them use the ARP Spoofing module, as it performs a MITM attack, giving you full control over the traffic of the victim. If you want more complex or customised actions, you may want to use ARPS with a proxy in order to filter, modify or forward more specific packets. Remember that KISS output is fully customisable with the [Verbose file](https://klesoft.github.io/KISS/pages/verbose).
 
 ## Simple net recon and analysis
 Let's perform a simple active and passive analysis in the net, resolving every ip we get so we can know the device name associated with that ip. The NetAnalyzer module config could be something like this:

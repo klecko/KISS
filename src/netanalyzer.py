@@ -47,11 +47,10 @@ class Network_Analyzer():
         self.hosts = []
         
         self.stop = False
-        #print("[NET] Found", len(packets[0]), "devices connected to the network.")
-
+        
     
     def _display_host(self, host):
-        """Displays a host.
+        """Displays a host IP and name.
         
         Parameters:
             host (tuple): tuple whose first element is the IP and the second
@@ -61,7 +60,6 @@ class Network_Analyzer():
         print("IP:", host[0], "\tName: ", end="")
         print(host[1]) if host[1] else print("not resolved")
     
-                
     
     def _is_it_a_new_ip(self, ip):
         """Checks if the given IP has not been detected yet.

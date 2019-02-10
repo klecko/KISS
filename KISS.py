@@ -25,8 +25,29 @@ if platform == "linux": N_THREADS = 1
 else: N_THREADS = 2 #in windows scapy runs a powershell in another thread
 
 
-class Args(): #Uso esta opción en lugar de una clase sin inicializar para no tener cosas globales
+class Args():
+    """Class in charge of reading the config file and checking that everything
+    is correct. Read __init__ docs for more.
+    
+    Attributes: this class has an attribute for each option in the config file.
+    The name of each attribute is PREFIX_OPTION, all in uppercase, being prefix
+    the first letter of the module the option belongs to.
+    """
+    
     def __init__(self, file_loc):
+        """Reads the config file, save every option as an attribute and checks
+        that everything is correct.
+        
+        Reads every option in the config file and save it as an attribute as
+        described in the class. If an error reading the file occurs, an error
+        message is logged and KISS finishes. If reading an option fails (it
+        may be missing), the attribute will be D34D. After that, check_args is
+        called, which checks D34D attributes, empty attributes and illogical
+        attributes, and disables a module if its config is not correct.
+        
+        Parameters:
+            file_loc (str): the location of the config file.
+        """
         log.info("CONFIG", "Reading config file...")
         try:
             args = configparser.ConfigParser()
@@ -83,6 +104,9 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
         
         
     def check_args(self):
+        """Checks missing, empty and illogical attributes, and disables a 
+        module if its config is not correct, logging a warning or an error.
+        """
         if "D34D" in self.__dict__.values():
             #si alguno de los atributos de la clase args contiene D34D, es porque no se ha encontrado alguno de los args
             log.error(None, "Missing conf parameters in config file. Leaving...")
@@ -149,6 +173,11 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
         if self.S_ENABLED and not self.A_ENABLED:
             log.warning(None, "ARP Spoofing is disabled! Only packets from the local machine will be sniffed. You can activate it in the config file.")
             
+        if self.J_ENABLED and not self.A_ENABLED:
+            #JS sin arps esta feo
+            log.warning(None, "JS Injecting can't be done without ARP Spoofing. Please enable ARPS. Disabling JS...")
+            self.J_ENABLED = False
+            
         if not self.N_ENABLED and not self.S_ENABLED and not self.A_ENABLED and not self.D_ENABLED and not self.U_ENABLED and not self.J_ENABLED:
             log.error(None, "No module is enabled. Leaving...")
             sys.exit()
@@ -157,6 +186,8 @@ class Args(): #Uso esta opción en lugar de una clase sin inicializar para no te
 
 
 def configure_iptables(init, args=None):
+    """Sets iptables rules and ip forwarding according to KISS configuration."""
+    
     if platform == "linux": #platform is from scapy
         os.system("iptables --flush")
         if init:
@@ -183,15 +214,21 @@ def configure_iptables(init, args=None):
             
             
 def check_privileges():
+    """Checks if KISS was run as root, logging an error and leaving if not."""
+    
     if platform == "linux":
         if os.getuid() != 0:
             log.error(None, "Admin privileges are required for actions such as sniffing and sending packets. Did you run KISS as root?")
             sys.exit()
             
 def intro(quality):
+    """Logs KISS header.
+    
+    Parameters:
+        quality (str): just set it to marvelous.
+    """
 
     width = os.get_terminal_size().columns - 2
-
     
     log.header(" ___  ___    ___   ________    ________       ".center(width))
     log.header("|\  \|\  \  |\  \ |\   ____\  |\   ____\     ".center(width))
@@ -204,9 +241,10 @@ def intro(quality):
     print("       Klecko Is Spoofing and Sniffing".center(width) + "\n")
 
 
-def wait_until_all_threads_terminate2():
-    #second way
+def wait_until_all_threads_terminate():
+    """Waits until every thread but the main one terminates."""
     
+    # Other option was performing a join to every non-main thread. I don't really know why I ended up using this option.
     
     while len(threading.enumerate()) > N_THREADS: 
         try:
@@ -216,6 +254,10 @@ def wait_until_all_threads_terminate2():
             
 
 def dependencias():
+    """Checks KISS dependencies: scapy 2.4.0+ and custom Scapy files. If
+    something missing, logs and exits.
+    """
+    
     f = open(scapy.__path__[0] + "/sendrecv.py")
     content = f.read()
     f.close()
@@ -244,7 +286,7 @@ def main():
     
     if args.N_ENABLED:
         #not a thread
-        net = netanalyzer.Network_Analyzer(args.N_GATEWAY_IP, args.N_RESOLVE, args.N_ACTIVE, args.N_PASSIVE, args.N_PASSIVE_ARPS_EVERYONE ,args.N_PASSIVE_TIMEOUT)
+        net = netanalyzer.Network_Analyzer(args.N_GATEWAY_IP, args.N_RESOLVE, args.N_ACTIVE, args.N_PASSIVE, args.N_PASSIVE_ARPS_EVERYONE, args.N_PASSIVE_TIMEOUT)
         net.start()
     
     if args.A_ENABLED:
@@ -278,7 +320,7 @@ def main():
             exit_event.set()
             log.info("INFO", "Finishing every module...")
             
-    wait_until_all_threads_terminate2()
+    wait_until_all_threads_terminate()
     configure_iptables(False)
     #log.error("This is an error exampleLALIASTEWEY")
     log.greetings("BYE", "Hope you enjoyed! KleSoft\n")

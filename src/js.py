@@ -99,14 +99,14 @@ class Spoofed_HTTP_Load(bytes):
         return load
     
     
-    def _remove_header_attribute_if_needed(self, attr_name, load, length_needed):
-        """Removes a given http header from a http load 
+    def _remove_header_attribute_if_needed(self, header_name, load, length_needed):
+        """Removes a given http header from a http load to reduce its length. 
         
         It can be removed totally or partially according to the needed length 
         of the final load. 
         
         Parameters:
-            attr_name (bytes or str): the key name of the http header. For 
+            header_name (bytes or str): the key name of the http header. For 
                 example: 'Expires', 'Date'
             load (bytes): the load whose header will be removed. It must
                 include http headers, so it is the full http packet.
@@ -119,7 +119,7 @@ class Spoofed_HTTP_Load(bytes):
         
         if len(load) > length_needed:
             new_load = load
-            attr_all = packet_utilities.get_header_attribute_from_http_load(attr_name, new_load)
+            attr_all = packet_utilities.get_header_attribute_from_http_load(header_name, new_load)
             if not attr_all: #the attribute is not in the load
                 return load
             
@@ -132,13 +132,13 @@ class Spoofed_HTTP_Load(bytes):
                 #el valor del atributo, en vez de dejar el nombre del atributo a medias (ej 'Expir'),
                 #mejor dejar el valor del atributo vacio pero con el nombre (ej 'Expires: \r\n')
                 #attrl_all:     Expires: ejemplo\r\n    18   
-                #attr_name:     Expires                 7   
-                #remove:            res: ejemplo        12
+                #header_name:   Expires                 7   
+                #remove:        res: ejemplo        12
                 #final:         Expi\r\n                6
                 #should be:     Expires: \r\n           11
                 
-                if len(remove) >= len(attr_all) - len(attr_name+": \n\r"): 
-                    remove = attr_all[len(attr_name + ": \n\r")-2:-2]
+                if len(remove) >= len(attr_all) - len(header_name+": \n\r"): 
+                    remove = attr_all[len(header_name + ": \n\r")-2:-2]
 
                 new_load = new_load.replace(remove, b"", 1)
             return new_load

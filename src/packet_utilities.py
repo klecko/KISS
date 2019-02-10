@@ -28,10 +28,10 @@ def is_it_an_ip(s):
     """Checks if the given string is an IP Address or not.
     
     Parameters:
-        s (str): string that may contain an IP Address.
+        s (str): string that may be an IP Address.
     
     Returns:
-        bool: True if it is an IP Address, False otherwise
+        bool: True if it is an IP Address, False otherwise.
     """
     
     if s.replace(".","").isnumeric():
@@ -40,12 +40,12 @@ def is_it_an_ip(s):
             for part in parts:
                 if int(part) > 255 or int(part) < 0:
                     return False
-                return True
+            return True
     return False
     
     
 def get_domain_pointer_to_local_ip(ip):
-    """Given a local IP address gets the local domain that points to that IP.
+    """Given a local IP address, gets the local domain that points to that IP.
     
     Parameters:
         ip (str): the local IP address from which the domain will be made.
@@ -122,6 +122,10 @@ def get_subhost(packet_load):
     
     Returns:
         str: the URL inside the host the packet was sent to.
+        
+    Example:
+        get_subhost(b'GET /test_url HTTP/1.1\r\nHost: example.com\r\nConnecti
+            on: keep-alive...') returns "/test_url"
     """
     
     if type(packet_load) == bytes: packet_load = packet_load.decode()
@@ -146,8 +150,8 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     Parameters:
         relevant_attributes (list, str): this can be a list with every
             attribute that will be looked for, or a string with '*', meaning
-            that every attribute is relevant. If 'cookie' is included in the
-            list, cookies will be also returned.
+            that every attribute is relevant. If it not '*' and 'cookie' is 
+            included in the list, cookies will be also returned.
         packet (scapy.packet.Packet): HTTP post packet.
         
     Returns:
@@ -166,7 +170,6 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     
     data = {"ip source":packet["IP"].src, "host":get_host(load)+get_subhost(load)}
     
-    # ~ print(load)
     if relevant_attributes == "*":
         for item in form_load_parsed.items():
             data[item[0]] = item[1][0]
@@ -191,7 +194,8 @@ def get_header_attribute_from_http_load(attribute, load):
         load (bytes, str): the load of the HTTP packet.
     
     Returns:
-        bytes: attribute, which includes key, value and \r\n.
+        bytes: attribute, which includes key, value and \r\n. It can also be
+            b"" if not found.
         
     Example:
         get_header_attribute_from_http_load("Content-Encoding", load) returns

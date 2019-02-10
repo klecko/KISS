@@ -10,7 +10,9 @@ from src.log import log, verbose, colors
 class HTTP_Sniffer(threading.Thread):
     """Thread of the HTTP Sniffing module.
     
-    Sniffs every HTTP Post packet, looking for interesting information.
+    Sniffs every HTTP packet, looking for interesting information. Logs when a
+    HTTP POST packet is found. When it finishes, it displays all the 
+    information and saves all the packets.
     """
     
     def __init__(self, exit_event, attributes, get_every_cookie, timeout):
@@ -22,6 +24,8 @@ class HTTP_Sniffer(threading.Thread):
             attributes (list, str): this can be a list with every attribute 
                 that will be looked for, or a string with '*', meaning that 
                 every attribute is relevant.
+            get_every_cookie (bool): if set to True, it will log the cookies
+                of every HTTP packet when it is sent.
             timeout (int, None): the time in seconds of the duration of the
                 sniffing. If None, it will last until CTRL-C is pressed.
             As a Thread, it can also have any of a thread parameters. See
@@ -46,8 +50,8 @@ class HTTP_Sniffer(threading.Thread):
         """Shows the results of the sniffing, displaying the data obtained.
         
         Parameters:
-            packets (scapy.plist.PacketList): list of HTTP post sniffed
-                packets that will be analyzed.
+            all_packets (scapy.plist.PacketList): list of HTTP sniffed packets
+                that will be analyzed. Only POST packets will be analyzed.
         """
         
         #Filters HTTP Post packets
@@ -111,7 +115,7 @@ class HTTP_Sniffer(threading.Thread):
         """Method representing the thread's activity. It is started when start
         function is called.
         
-        Sniffs every HTTP post packet, saying when it gets one of them. When
+        Sniffs every HTTP post packet, logging when it gets one of them. When
         finished, it displays all the information and save the packets.
         """
         
