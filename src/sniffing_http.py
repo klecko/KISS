@@ -4,7 +4,7 @@ from scapy.all import *
 from urllib.request import unquote
 
 from src import files, packet_utilities
-from src.log import log, verbose
+from src.log import log, verbose, colors
 
 
 class HTTP_Sniffer(threading.Thread):
@@ -59,7 +59,7 @@ class HTTP_Sniffer(threading.Thread):
         if verbose.sniff.results and len(packets) > 0:
             print(". Analyzing packets...\n")
             for i, packet in enumerate(packets):
-                print("\033[94mPACKET " + str(i) + "\033[0m:")
+                print(colors.JS + "PACKET " + str(i) + colors.ENDC + " :")
                 items = packet_utilities.get_relevant_data_from_http_packet(self.relevant_attributes, packet).items()
                 for item in items:
                     print(item[0] + ":", item[1])
@@ -80,6 +80,7 @@ class HTTP_Sniffer(threading.Thread):
         """
         
         cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode()
+
         if cookies: return cookies[8:-2]
         else: return ""
             

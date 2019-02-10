@@ -156,7 +156,7 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     """
     
     get_cookies = False
-    if "cookie" in "".join(relevant_attributes).lower():
+    if "cookie" in "".join(relevant_attributes).lower() or relevant_attributes == "*":
         get_cookies = True
         
     
@@ -170,16 +170,16 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
     if relevant_attributes == "*":
         for item in form_load_parsed.items():
             data[item[0]] = item[1][0]
-        cookies = get_header_attribute_from_http_load("Cookie", load).decode()
-        if cookies: data["Cookies"] = cookies[8:-2]
     else:
         for attribute in relevant_attributes:
             possible_value = form_load_parsed.get(attribute)#get_attribute_from_packet_load(attribute, load)
             if possible_value:
                 data[attribute] = possible_value[0]
-        if get_cookies:
-            cookies = get_header_attribute_from_http_load("Cookie", load).decode()
-            if cookies: data["Cookies"] = cookies[8:-2]
+                
+    if get_cookies:
+        cookies = get_header_attribute_from_http_load("Cookie", load).decode()
+        if cookies: data["Cookies"] = cookies[8:-2]
+        
     return data
 
 

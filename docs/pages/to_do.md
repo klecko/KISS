@@ -1,5 +1,7 @@
 # To Do List
 
+**READ:** KISS is not under development anymore.
+
 ### Incoming attacks and features
 - DoS Attack: probably [this one](https://www.giac.org/paper/gsec/313/naptha-type-denial-of-service-attack/100899)
 - Deauth Attack (maybe comes with a DHCP Spoofing attack)
@@ -11,7 +13,7 @@
 - Maybe everything imported from scapy should be changed to sc.*
 - Possibility of adding subnets as targets.
 
-### Bug fixes
-- Fucking DNS iptables with HTTP GET and POST dont work correctly.
+### Known bugs
+- Couldn't figure out how to make iptables match both http GET and POST packets, so I think POST packets are not being spoofed.
 - [Hasn't happened in a while] DNS Spoofing wikia.com to pokexperto.net some queries fails, probably because of pokexperto.net/index2.php. Investigate that.
-- When you DNS Spoof, some HTTP POST Packets are not spoofed (for example login in padventures.org). I think that even if they are, it redirects to the real host.
+- **Nowadays http protocol is barely used, being replaced by HTTPS and also QUIC (I was surprised my mobile phone was using it) so this tool is quite obsolete.**
