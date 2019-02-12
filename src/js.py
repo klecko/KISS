@@ -91,9 +91,9 @@ class Spoofed_HTTP_Load(bytes):
         """
         
         if b_old_chunk_length and "chunked" in self.transfer_encoding_header:
-            int_old_chunk_length = int(b_old_chunk_length[:-2].decode(), 16) #paso de bytes de base 16 a int de base 10
+            int_old_chunk_length = int(b_old_chunk_length[:-2].decode("utf-8", "ignore"), 16) #paso de bytes de base 16 a int de base 10
             new_int_chunk_length = int_old_chunk_length + length_difference #le sumo la diferencia
-            new_b_chunk_length = hex(new_int_chunk_length)[2:].encode() + b"\r\n" #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
+            new_b_chunk_length = hex(new_int_chunk_length)[2:].encode("utf-8", "ignore") + b"\r\n" #paso la longitud de int de base 10 a bytes de base 16. lo del 2 es para quitar el '0x'
             load = new_b_chunk_length + load
             #print(len(self.injected_code), b_old_chunk_length, new_b_chunk_length)
         return load
@@ -247,8 +247,8 @@ class Spoofed_HTTP_Load(bytes):
         
         self.injected_code = injected_code
         
-        self.content_encoding_header = packet_utilities.get_header_attribute_from_http_load("Content-Encoding", spoof_load).decode()
-        self.transfer_encoding_header = packet_utilities.get_header_attribute_from_http_load("Transfer-Encoding", spoof_load).decode()
+        self.content_encoding_header = packet_utilities.get_header_attribute_from_http_load("Content-Encoding", spoof_load).decode("utf-8", "ignore")
+        self.transfer_encoding_header = packet_utilities.get_header_attribute_from_http_load("Transfer-Encoding", spoof_load).decode("utf-8", "ignore")
             
         spoof_load = spoof_load.split(b"\r\n\r\n")
         
@@ -278,7 +278,7 @@ class Spoofed_HTTP_Load(bytes):
                 spoof_load[1] = self.injected_code
                 if "chunked" in self.transfer_encoding_header:
                     spoof_load[1] = self._update_and_add_chunk_length_if_needed(self, spoof_load[1], b"0\r\n", len(self.injected_code))
-                print(spoof_load[0].decode(), spoof_load[1].decode())
+                print(spoof_load[0].decode(), spoof_load[1].decode("utf-8", "ignore"))
                 print("chunked without gzip in empty packet")
             else:
                 raise ForwardPacketPlease("Empty gzipped packet")

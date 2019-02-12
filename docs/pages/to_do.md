@@ -15,5 +15,5 @@
 
 ### Known bugs
 - Couldn't figure out how to make iptables match both http GET and POST packets, so I think POST packets are not being spoofed.
-- [Hasn't happened in a while] DNS Spoofing wikia.com to pokexperto.net some queries fails, probably because of pokexperto.net/index2.php. Investigate that.
+- Sometimes http spoofing (included with dns spoofing) seem not to work, depending on the browser maybe?
 - **Nowadays http protocol is barely used, being replaced by HTTPS and also QUIC (I was surprised my mobile phone was using it) so this tool is quite obsolete.**

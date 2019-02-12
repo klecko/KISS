@@ -83,7 +83,7 @@ class HTTP_Sniffer(threading.Thread):
             str: the content of the Cookie http header.
         """
         
-        cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode()
+        cookies = packet_utilities.get_header_attribute_from_http_load("Cookie", packet.load).decode("utf-8", "ignore")
 
         if cookies: return cookies[8:-2]
         else: return ""

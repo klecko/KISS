@@ -85,7 +85,7 @@ def nslookup(domain, ns_server="8.8.8.8", qtype="A", timeout=2, twice=True):
     ans = sr1(p, timeout=timeout, verbose=0)
     if ans and ans.rcode == 0: #si hay repsuesta y viene sin error
         result = ans["DNS"].an.rdata
-        if type(result) == bytes: result = result.decode("utf-8")
+        if type(result) == bytes: result = result.decode("utf-8", "ignore")
         return result
     else:
         if twice:
@@ -104,7 +104,7 @@ def get_host(packet_load):
         str: the host the packet was sent to.
     """
     
-    if type(packet_load) == bytes: packet_load = packet_load.decode()
+    if type(packet_load) == bytes: packet_load = packet_load.decode("utf-8", "ignore")
         
     pos1 = packet_load.find("Host: ")
     if pos1 != -1:
@@ -128,7 +128,7 @@ def get_subhost(packet_load):
             on: keep-alive...') returns "/test_url"
     """
     
-    if type(packet_load) == bytes: packet_load = packet_load.decode()
+    if type(packet_load) == bytes: packet_load = packet_load.decode("utf-8", "ignore")
     
     last_pos = packet_load.find(" HTTP/")
     if packet_load[:4] == "POST":
@@ -180,7 +180,7 @@ def get_relevant_data_from_http_packet(relevant_attributes, packet):
                 data[attribute] = possible_value[0]
                 
     if get_cookies:
-        cookies = get_header_attribute_from_http_load("Cookie", load).decode()
+        cookies = get_header_attribute_from_http_load("Cookie", load).decode("utf-8", "ignore")
         if cookies: data["Cookies"] = cookies[8:-2]
         
     return data
