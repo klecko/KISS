@@ -5,13 +5,13 @@ KISS has a verbose file called `verbose.ini` in order to configurate which messa
 
 | Message Key | Description | Example |
 | -- | -- | :--: |
-| verbose | General verbose. If set to 0, only errors will be printed. | - |
+| verbose | General verbose. If set to 0, only errors will be printed. |  |
 
 ## JS
 
 |Message Key|Description|Example|
 |:--:|--|--|
-|verbose|JS Injection verbose. If set to 0, the JS Injection module won't print anything.|<div style="text-align:center"> -</div> |
+|verbose|JS Injection verbose. If set to 0, the JS Injection module won't print anything.|  |
 |packet_len|Warning when the length of the spoofed packet load exceed 1410 bytes. | [WARNING] Spoofed packet load length exceeded 1410 bytes. Current length: 1453|
 |recv1|Info message when the first packet of a JS file transaction arrives|[ID 16802452] Recv: first packet of a JS transaction|
 |recv2|Info message when the only packet of a JS file transaction arrives|[ID 16802452] Recv: first and only packet of a JS transaction|

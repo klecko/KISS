@@ -485,12 +485,10 @@ class L3PacketSocket(SuperSocket):
         try:
             self.outs.sendto(sx, sdto)
         except socket.error as msg:
-            if msg.errno == 22 and len(sx) < conf.min_pkt_size: #KLECKO msg[0] --> msg.errno
-                #print("scapy error msg added by klecko: packet smaller than minimun size. adding padding..")
+            if msg.errno == 22 and len(sx) < conf.min_pkt_size: #KLESOFT msg[0] --> msg.errno
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
-            elif conf.auto_fragment and msg.errno == 90: #KLECKO msg[0] --> msg.errno
+            elif conf.auto_fragment and msg.errno == 90: #KLESOFT msg[0] --> msg.errno
                 for p in x.fragment():
-                    #print("scapy error msg added by klecko: maximum size exceeded. fragmenting packet.")
                     self.outs.sendto(raw(ll(p)), sdto)
             else:
                 raise
@@ -552,9 +550,8 @@ class L2Socket(SuperSocket):
         try:
             return SuperSocket.send(self, x)
         except socket.error as msg:
-            if msg.errno == 22 and len(x) < conf.min_pkt_size: #KLECKO msg[0] --> msg.errno
+            if msg.errno == 22 and len(x) < conf.min_pkt_size: #KLESOFT msg[0] --> msg.errno
                 padding = b"\x00" * (conf.min_pkt_size - len(x))
-                #print("scapy error msg added by klecko: packet smaller than minimum size. added padding2 ..")
                 if isinstance(x, Packet):
                     return SuperSocket.send(self, x / Padding(load=padding))
                 else:

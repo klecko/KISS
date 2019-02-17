@@ -741,9 +741,9 @@ Examples:
         stoptime = time.time()+timeout
     remain = None
     
-    if stopperTimeout is not None:#KLECKO
-        stopperStoptime = time.time()+stopperTimeout#KLECKO
-    remainStopper = None#KLECKO
+    if stopperTimeout is not None: #KLESOFT
+        stopperStoptime = time.time()+stopperTimeout #KLESOFT
+    remainStopper = None #KLESOFT
     
     read_allowed_exceptions = ()
     if conf.use_bpf:
@@ -761,7 +761,7 @@ Examples:
     else:
         def _select(sockets):
             try:
-                return select(sockets, [], [], remainStopper)[0] #KLECKO remain --> remainStopper
+                return select(sockets, [], [], remainStopper)[0] #KLESOFT remain --> remainStopper
             except select_error as exc:
                 # Catch 'Interrupted system call' errors
                 if exc[0] == errno.EINTR:
@@ -772,28 +772,25 @@ Examples:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
-                    #print("out3") #KLECKO
                     break
                     
-            if stopperTimeout is not None: #KLECKO
-                remainStopper = stopperStoptime-time.time() #KLECKO
-                if remainStopper <=0: #KLECKO
-                    if stopper and stopper(): #KLECKO
-                        #print("out2") #KLECKO
-                        break #KLECKO
-                    stopperStoptime = time.time()+stopperTimeout #KLECKO
-                    remainStopper = stopperStoptime-time.time() #KLECKO
+            if stopperTimeout is not None: #KLESOFT
+                remainStopper = stopperStoptime-time.time() #KLESOFT
+                if remainStopper <=0: #KLESOFT
+                    if stopper and stopper(): #KLESOFT
+                        break #KLESOFT
+                    stopperStoptime = time.time()+stopperTimeout #KLESOFT
+                    remainStopper = stopperStoptime-time.time() #KLESOFT
 
-                ins = _select(sniff_sockets) #KLECKO
-                if list(sniff_sockets.keys())[0] not in ins: #KLECKO
+                ins = _select(sniff_sockets) #KLESOFT
+                if list(sniff_sockets.keys())[0] not in ins: #KLESOFT
                     #if socket is not available and stopper, it leaves
-                    if stopper and stopper(): #KLECKO
-                        #print("out1") #KLECKO
-                        break #KLECKO
-            else: #KLECKO
-                ins = _select(sniff_sockets) #KLECKO
+                    if stopper and stopper(): #KLESOFT
+                        break #KLESOFT
+            else: #KLESOFT
+                ins = _select(sniff_sockets) #KLESOFT
                 
-            #ins = _select(sniff_sockets) KLECKO QUITADO
+            #ins = _select(sniff_sockets) KLESOFT QUITADO
             for s in ins:
                 try:
                     p = s.recv()

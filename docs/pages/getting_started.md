@@ -23,9 +23,9 @@ After you installed the dependencies, you can easily download KISS in your curre
 ```
 git clone https://github.com/klesoft/KISS.git
 ```
-Now you only need two more step. First, KISS needs some Scapy files to be modified. Those files are located in the `scapy_files` folder inside KISS. You will need to move the content of that folder to the source folder of scapy, which is usually located at `/usr/local/lib/pythonXXX/dist-packages/scapy`, where XXX is your Python version (i.e 3.6), or at `/home/NAME/.local/lib/pythonXXX/site-packages/scapy`, where NAME is your username.
+Now you only need two more steps. First, KISS needs some Scapy files to be modified. Those files are located in the `scapy_files` folder inside KISS. You will need to move the content of that folder.
 <br>
-After that, KISS is ready to run. Before that, I recommend you to take a look at the [config](https://klesoft.github.io/KISS/pages/config) and [verbose](https://klesoft.github.io/KISS/pages/verbose) files. Now, just go to KISS folder and run:
+After that, KISS is ready to run. Before that, I recommend you to take a look at the [config file](https://klesoft.github.io/KISS/pages/config) and at some [examples](https://klesoft.github.io/KISS/pages/examples) files. Now, just go to KISS folder and run:
 ```
 sudo python3 KISS.py
 ```
