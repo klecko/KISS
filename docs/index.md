@@ -23,6 +23,5 @@ Welcome to KISS (acronym for Klesoft Is Spoofing and Sniffing), a tool for netwo
 
 # Requirements
 - Linux (KISS is unfortunately based in iptables, so it needs Linux. It can also run in Windows, but you'll need to find some firewall that does the same as iptables)
-- Python v3.7
-- Scapy v2.4.0+
-- Custom Scapy files included in `scapy_files` folder. They must be moved to Scapy directory.
+- Python v3.6+
+- Scapy v2.4.0 with some custom files (comes with KISS)
