@@ -24,6 +24,7 @@
 - **Time_limit**: time in seconds the attack will last. Leaving it empty means no time limit (until Ctrl-C is pressed).
 - **Interval**: time in seconds between each ARP packet is sent.
 - **Disconnect**: if set to 1, MiTM attack won't be performed. Instead, target will remain without connection (0: MiTM, 1: Disconnect).
+- **Check**: if set to 1, KISS will check if ARP Spoofing worked and log if the target was poisoned.
 
 ## DNS
 - **Enabled**: enables the attack (0: disabled, 1: enabled).
