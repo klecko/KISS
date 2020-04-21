@@ -624,7 +624,7 @@ iface:    listen answers only on the given interface"""
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, stopperTimeout=None, stopper = None, *arg, **karg):
-    """KleSoft sniff function. Includes stopper and stopperTimeout.
+    """Klecko sniff function. Includes stopper and stopperTimeout.
 It is a copy of the original sniff function plus some adapted code 
 from the copied_sniff function.
 The copied_sniff function, which is commented below in sendrecv.py, was 
@@ -741,9 +741,9 @@ Examples:
         stoptime = time.time()+timeout
     remain = None
     
-    if stopperTimeout is not None: #KLESOFT
-        stopperStoptime = time.time()+stopperTimeout #KLESOFT
-    remainStopper = None #KLESOFT
+    if stopperTimeout is not None: #KLECKO
+        stopperStoptime = time.time()+stopperTimeout #KLECKO
+    remainStopper = None #KLECKO
     
     read_allowed_exceptions = ()
     if conf.use_bpf:
@@ -761,7 +761,7 @@ Examples:
     else:
         def _select(sockets):
             try:
-                return select(sockets, [], [], remainStopper)[0] #KLESOFT remain --> remainStopper
+                return select(sockets, [], [], remainStopper)[0] #KLECKO remain --> remainStopper
             except select_error as exc:
                 # Catch 'Interrupted system call' errors
                 if exc[0] == errno.EINTR:
@@ -774,23 +774,23 @@ Examples:
                 if remain <= 0:
                     break
                     
-            if stopperTimeout is not None: #KLESOFT
-                remainStopper = stopperStoptime-time.time() #KLESOFT
-                if remainStopper <=0: #KLESOFT
-                    if stopper and stopper(): #KLESOFT
-                        break #KLESOFT
-                    stopperStoptime = time.time()+stopperTimeout #KLESOFT
-                    remainStopper = stopperStoptime-time.time() #KLESOFT
+            if stopperTimeout is not None: #KLECKO
+                remainStopper = stopperStoptime-time.time() #KLECKO
+                if remainStopper <=0: #KLECKO
+                    if stopper and stopper(): #KLECKO
+                        break #KLECKO
+                    stopperStoptime = time.time()+stopperTimeout #KLECKO
+                    remainStopper = stopperStoptime-time.time() #KLECKO
 
-                ins = _select(sniff_sockets) #KLESOFT
-                if list(sniff_sockets.keys())[0] not in ins: #KLESOFT
+                ins = _select(sniff_sockets) #KLECKO
+                if list(sniff_sockets.keys())[0] not in ins: #KLECKO
                     #if socket is not available and stopper, it leaves
-                    if stopper and stopper(): #KLESOFT
-                        break #KLESOFT
-            else: #KLESOFT
-                ins = _select(sniff_sockets) #KLESOFT
+                    if stopper and stopper(): #KLECKO
+                        break #KLECKO
+            else: #KLECKO
+                ins = _select(sniff_sockets) #KLECKO
                 
-            #ins = _select(sniff_sockets) KLESOFT QUITADO
+            #ins = _select(sniff_sockets) KLECKO QUITADO
             for s in ins:
                 try:
                     p = s.recv()

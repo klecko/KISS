@@ -1,4 +1,4 @@
-#KISS by KleSoft
+#KISS by Klecko
 #25/09/18
 
 
@@ -240,7 +240,7 @@ def intro(quality):
     log.header("   \ \__\\\ \__\\\ \__\ ____\_\  \  ____\_\  \ ".center(width))
     log.header("    \|__| \|__| \|__||\_________\|\_________\ ".center(width))
     log.header("                     \|_________|\|_________| ".center(width) + "\n")
-    print("       Klesoft Is Spoofing and Sniffing".center(width) + "\n")
+    print("       Klecko Is Spoofing and Sniffing".center(width) + "\n")
 
 
 def wait_until_all_threads_terminate():
@@ -266,7 +266,7 @@ def dependencias():
     if scapy.VERSION < "2.4.0":
         log.error(None, "Scapy " + scapy.VERSION + "is not supported. Please download Scapy +2.4.0.")
         sys.exit()
-    if not "KLESOFT" in content:
+    if not "Klecko" in content:
         log.error(None, "Your sendrecv.py Scapy file is not KISS custom file. Please move files in scapy_files folder to the Scapy directory.")
         sys.exit()
 
@@ -325,7 +325,7 @@ def main():
     wait_until_all_threads_terminate()
     configure_iptables(False)
     #log.error("This is an error exampleLALIASTEWEY")
-    log.greetings("BYE", "Hope you enjoyed! KleSoft\n")
+    log.greetings("BYE", "Hope you enjoyed! Klecko\n")
 
 
 if __name__ == "__main__":
