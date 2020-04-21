@@ -1,2 +1,2 @@
-# [KISS ME BABY](https://klesoft.github.io/KISS/)
+# [KISS ME BABY](https://klecko.github.io/KISS/)
 # [THOUGHTS](docs/thoughts.md)

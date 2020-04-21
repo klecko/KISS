@@ -20,10 +20,10 @@ lose time and space installing more things.
 ## Downloading KISS
 After you installed the dependencies, you can easily download KISS in your current directory with:
 ```
-git clone https://github.com/klesoft/KISS.git
+git clone https://github.com/klecko/KISS.git
 ```
 
-Now KISS is ready to run. Before that, I recommend you to take a look at the [config file](https://klesoft.github.io/KISS/pages/config) and at some [examples](https://klesoft.github.io/KISS/pages/examples) files. Then, just go to KISS folder and run:
+Now KISS is ready to run. Before that, I recommend you to take a look at the [config file](https://klecko.github.io/KISS/pages/config) and at some [examples](https://klecko.github.io/KISS/pages/examples) files. Then, just go to KISS folder and run:
 ```
 sudo python3 KISS.py
 ```
